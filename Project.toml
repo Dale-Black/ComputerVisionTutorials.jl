@@ -1,0 +1,7 @@
+[deps]
+ComputerVisionMetrics = "56beca70-ca20-45da-83c4-a042539b6c19"
+DistanceTransforms = "71182807-4d06-4237-8dd0-bdafe4d097e2"
+HTMLStrings = "c47fe496-5789-4377-b1db-55e89f2ee0c6"
+Losers = "1785af8d-d312-496e-9b53-daf6ddaba92c"
+Lux = "b2108857-7c20-44ae-9111-449ecde12c47"
+PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
