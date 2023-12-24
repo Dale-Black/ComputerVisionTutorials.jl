@@ -1,0 +1,9 @@
+[submodule "ComputerVisionMetrics.jl"]
+	path = ComputerVisionMetrics.jl
+	url = https://github.com/Dale-Black/ComputerVisionMetrics.jl
+[submodule "DistanceTransforms.jl"]
+	path = DistanceTransforms.jl
+	url = https://github.com/Dale-Black/DistanceTransforms.jl
+[submodule "Losers.jl"]
+	path = Losers.jl
+	url = https://github.com/Dale-Black/Losers.jl
