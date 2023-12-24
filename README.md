@@ -1,4 +1,4 @@
-# MedImageAITutorials.jl
+# ComputerVisionTutorials.jl
 
-Practical tutorials for deep learning in the field of medical imaging, using Julia.
+Practical tutorials for deep learning in the field of computer vision, with an emphasis on medical imaging.
 
