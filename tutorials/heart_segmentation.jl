@@ -7,6 +7,12 @@ using InteractiveUtils
 # ╔═╡ 5658ac7d-2540-4aa6-b3ee-8539ad2cc2dd
 using PlutoUI: TableOfContents
 
+# ╔═╡ e326aaf4-1485-49f8-8368-bf279a2b9bfb
+using HTTP: download
+
+# ╔═╡ 81643f92-f958-4d50-9691-78c6f050819e
+using Tar: extract
+
 # ╔═╡ af20f058-a10a-11ee-3434-077e84c431ac
 using MLUtils: DataLoader, splitobs, mapobs
 
@@ -40,6 +46,30 @@ using LuxCUDA
 
 # ╔═╡ f0300914-bf8f-4037-a9d4-82fce5dd445c
 TableOfContents()
+
+# ╔═╡ ccbb08ed-54c7-4cae-acbe-28bcb53e7ce1
+function download_dataset(heart_url, target_directory)
+    if isempty(readdir(target_directory))
+        local_tar_file = joinpath(target_directory, "heart_dataset.tar")
+		download(heart_url, "heart_dataset.tar")
+		extract("heart_dataset.tar", target_directory)
+		data_dir = joinpath(target_directory, readdir(target_directory)...)
+        return data_dir
+    else
+        @warn "Target directory is not empty. Aborting download and extraction."
+        return taget_directory
+    end
+end
+
+# ╔═╡ c7d4940c-7a11-4ff3-94b9-bb95266573c9
+heart_url = "https://msd-for-monai.s3-us-west-2.amazonaws.com/Task02_Heart.tar"
+
+# ╔═╡ d1a975ae-bc29-4427-a764-c58131daf5bd
+target_directory = mktempdir()
+
+# ╔═╡ d1ef64cf-f40b-4a3b-b72e-5440fd2e9084
+# ╠═╡ show_logs = false
+data_dir = download_dataset(heart_url, target_directory)
 
 # ╔═╡ 2bd45386-0384-48ed-b074-237b5c07e2c0
 begin
@@ -83,9 +113,6 @@ md"""
 md"""
 ## Dataset
 """
-
-# ╔═╡ e0c124fd-dce9-402f-8cbf-fbe0c1232139
-data_dir = "/Users/daleblack/Library/CloudStorage/GoogleDrive-dalejamesblack@gmail.com/My Drive/Datasets/Task02_Heart"
 
 # ╔═╡ 9f9d596c-0c17-4cde-8ee2-8d42eb579517
 data = ImageCASDataset(data_dir)
@@ -319,7 +346,7 @@ end
 
 # ╔═╡ d4f4e929-e295-4198-8ca7-d162e5e57092
 md"""
-## Model
+## FCN
 """
 
 # ╔═╡ 0a4af070-7672-4a75-b3d5-0aa3257a66dc
@@ -433,15 +460,15 @@ md"""
 ## Loss function
 """
 
-# ╔═╡ 4f3c98da-5714-459f-837a-30fdc2041f59
-function compute_loss(x, y, model, ps, st)
+# ╔═╡ df852bbe-fb8b-40b6-a485-3a8ed28f250b
+function compute_loss(x, y, model, ps, st, epoch)
+    alpha = max(1.0 - 0.01 * epoch, 0.01)
+    beta = 1.0 - alpha
+
     y_pred, st = model(x, ps, st)
 
-    # Apply softmax and extract the second channel for binary prediction
     y_pred_softmax = softmax(y_pred, dims=4)
     y_pred_binary = round.(y_pred_softmax[:, :, :, 2, :])
-
-    # Assuming y is already binary and focusing on the second channel
     y_binary = y[:, :, :, 2, :]
 
     # Compute loss
@@ -458,7 +485,7 @@ function compute_loss(x, y, model, ps, st)
 		
 		hd = hausdorff_loss(_y_pred, _y, _y_pred_dtm, _y_dtm)
 		dsc = dice_loss(_y_pred, _y)
-		loss += hd + dsc
+		loss += alpha * dsc + beta * hd
     end
     return loss / size(y, 5), y_pred_binary, st
 end
@@ -485,6 +512,7 @@ function train_model(model, ps, st, train_loader, num_epochs, dev)
     opt_state = create_optimiser(ps)
 
     for epoch in 1:num_epochs
+		@info "Epoch: $epoch"
 
 		# Training Phase
         for (x, y) in train_loader
@@ -492,8 +520,8 @@ function train_model(model, ps, st, train_loader, num_epochs, dev)
 			
             # Forward pass
             y_pred, st = Lux.apply(model, x, ps, st)
-            loss, y_pred, st = compute_loss(x, y, model, ps, st)
-			@info "Training Loss: $loss"
+            loss, y_pred, st = compute_loss(x, y, model, ps, st, epoch)
+			# @info "Training Loss: $loss"
 
             # Backward pass
 			(loss_grad, st_), back = Zygote.pullback(p -> Lux.apply(model, x, p, st), ps)
@@ -511,7 +539,7 @@ function train_model(model, ps, st, train_loader, num_epochs, dev)
 			
 	        # Forward Pass
 	        y_pred, st = Lux.apply(model, x, ps, st)
-	        loss, _, _ = compute_loss(x, y, model, ps, st)
+	        loss, _, _ = compute_loss(x, y, model, ps, st, epoch)
 	
 	        total_loss += loss
 	        num_batches += 1
@@ -524,7 +552,7 @@ function train_model(model, ps, st, train_loader, num_epochs, dev)
 end
 
 # ╔═╡ f3386868-7762-4e00-bdd6-d8bdd180e313
-num_epochs = 2
+num_epochs = 3
 
 # ╔═╡ 25a0f782-9fe9-4ee4-9b87-f67dea7b0fc7
 train_model(model, ps, st, train_loader, num_epochs, dev)
@@ -536,6 +564,7 @@ ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 ComputerVisionMetrics = "56beca70-ca20-45da-83c4-a042539b6c19"
 DistanceTransforms = "71182807-4d06-4237-8dd0-bdafe4d097e2"
 Glob = "c27321d9-0574-5035-807b-f59d2c89b15c"
+HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
 Losers = "1785af8d-d312-496e-9b53-daf6ddaba92c"
 Lux = "b2108857-7c20-44ae-9111-449ecde12c47"
 LuxCUDA = "d0bbae9a-e099-4d5b-a835-1c6931763bda"
@@ -544,6 +573,7 @@ NIfTI = "a3a9e032-41b5-5fc4-967a-a6b7a19844d3"
 Optimisers = "3bd65402-5787-11e9-1adc-39752487f4e2"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Tar = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
@@ -551,6 +581,7 @@ ChainRulesCore = "~1.19.0"
 ComputerVisionMetrics = "~0.1.0"
 DistanceTransforms = "~0.2.1"
 Glob = "~1.3.1"
+HTTP = "~1.10.1"
 Losers = "~0.1.0"
 Lux = "~0.5.13"
 LuxCUDA = "~0.3.1"
@@ -567,7 +598,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.10.0-rc3"
 manifest_format = "2.0"
-project_hash = "f1fea0820561cffa9fec97f5a58ae875773abdfe"
+project_hash = "9af5c8c906388e294c8870f83a8cb3bfb167f416"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "332e5d7baeff8497b923b730b994fa480601efc7"
@@ -674,6 +705,11 @@ uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 git-tree-sha1 = "aebf55e6d7795e02ca500a689d326ac979aaf89e"
 uuid = "9718e550-a3fa-408a-8086-8db961cd8217"
 version = "0.1.1"
+
+[[deps.BitFlags]]
+git-tree-sha1 = "2dc09997850d68179b69dafb58ae806167a32b1b"
+uuid = "d1d4a3ce-64b1-5f1a-9ba4-7e7e69966f35"
+version = "0.1.8"
 
 [[deps.BitTwiddlingConvenienceFunctions]]
 deps = ["Static"]
@@ -820,6 +856,12 @@ git-tree-sha1 = "f749037478283d372048690eb3b5f92a79432b34"
 uuid = "2569d6c7-a4a2-43d3-a901-331e8e4be471"
 version = "0.2.3"
 
+[[deps.ConcurrentUtilities]]
+deps = ["Serialization", "Sockets"]
+git-tree-sha1 = "8cfa272e8bdedfa88b6aefbbca7c19f1befac519"
+uuid = "f0e56b4a-5159-44fe-b623-3e5288b988bb"
+version = "2.3.0"
+
 [[deps.ConstructionBase]]
 deps = ["LinearAlgebra"]
 git-tree-sha1 = "c53fc348ca4d40d7b371e71fd52251839080cbc9"
@@ -921,6 +963,12 @@ deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 version = "1.6.0"
 
+[[deps.ExceptionUnwrapping]]
+deps = ["Test"]
+git-tree-sha1 = "e90caa41f5a86296e014e148ee061bd6c3edec96"
+uuid = "460bff9d-24e4-43bc-9d9f-a8973cb893f4"
+version = "0.1.9"
+
 [[deps.ExprTools]]
 git-tree-sha1 = "27415f162e6028e81c72b82ef756bf321213b6ec"
 uuid = "e2ba6199-217a-4e67-a87a-7c52f15ade04"
@@ -1005,6 +1053,12 @@ version = "0.25.0"
 git-tree-sha1 = "97285bbd5230dd766e9ef6749b80fc617126d496"
 uuid = "c27321d9-0574-5035-807b-f59d2c89b15c"
 version = "1.3.1"
+
+[[deps.HTTP]]
+deps = ["Base64", "CodecZlib", "ConcurrentUtilities", "Dates", "ExceptionUnwrapping", "Logging", "LoggingExtras", "MbedTLS", "NetworkOptions", "OpenSSL", "Random", "SimpleBufferStream", "Sockets", "URIs", "UUIDs"]
+git-tree-sha1 = "abbbb9ec3afd783a7cbd82ef01dcd088ea051398"
+uuid = "cd3eb016-35fb-5094-929b-558a96fad6f3"
+version = "1.10.1"
 
 [[deps.HostCPUFeatures]]
 deps = ["BitTwiddlingConvenienceFunctions", "IfElse", "Libdl", "Static"]
@@ -1205,6 +1259,12 @@ version = "0.3.26"
 [[deps.Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
+[[deps.LoggingExtras]]
+deps = ["Dates", "Logging"]
+git-tree-sha1 = "c1dd6d7978c12545b4179fb6153b9250c96b0075"
+uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
+version = "1.0.3"
+
 [[deps.LoopVectorization]]
 deps = ["ArrayInterface", "CPUSummary", "CloseOpenIntervals", "DocStringExtensions", "HostCPUFeatures", "IfElse", "LayoutPointers", "LinearAlgebra", "OffsetArrays", "PolyesterWeave", "PrecompileTools", "SIMDTypes", "SLEEFPirates", "Static", "StaticArrayInterface", "ThreadingUtilities", "UnPack", "VectorizationBase"]
 git-tree-sha1 = "0f5648fbae0d015e3abe5867bca2b362f67a5894"
@@ -1336,6 +1396,12 @@ version = "0.4.2"
 deps = ["Base64"]
 uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 
+[[deps.MbedTLS]]
+deps = ["Dates", "MbedTLS_jll", "MozillaCACerts_jll", "NetworkOptions", "Random", "Sockets"]
+git-tree-sha1 = "c067a280ddc25f196b5e7df3877c6b226d390aaf"
+uuid = "739be429-bea8-5141-9913-cc70e7f3736d"
+version = "1.1.9"
+
 [[deps.MbedTLS_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "c8ffd9c3-330d-5841-b78e-0817d7145fa1"
@@ -1436,6 +1502,18 @@ version = "0.3.23+2"
 deps = ["Artifacts", "Libdl"]
 uuid = "05823500-19ac-5b8b-9628-191a04bc5112"
 version = "0.8.1+2"
+
+[[deps.OpenSSL]]
+deps = ["BitFlags", "Dates", "MozillaCACerts_jll", "OpenSSL_jll", "Sockets"]
+git-tree-sha1 = "51901a49222b09e3743c65b8847687ae5fc78eb2"
+uuid = "4d8831e6-92b7-49fb-bdf8-b643e874388c"
+version = "1.4.1"
+
+[[deps.OpenSSL_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl"]
+git-tree-sha1 = "cc6e1927ac521b659af340e0ca45828a3ffc748f"
+uuid = "458c3c95-2e84-50aa-8efc-19380b2a3a95"
+version = "3.0.12+0"
 
 [[deps.OpenSpecFun_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Pkg"]
@@ -1605,6 +1683,11 @@ version = "1.1.1"
 git-tree-sha1 = "7f534ad62ab2bd48591bdeac81994ea8c445e4a5"
 uuid = "605ecd9f-84a6-4c9e-81e2-4798472b76a3"
 version = "0.1.0"
+
+[[deps.SimpleBufferStream]]
+git-tree-sha1 = "874e8867b33a00e784c8a7e4b60afe9e037b74e1"
+uuid = "777ac1f9-54b0-4bf8-805c-2214025038e7"
+version = "1.1.0"
 
 [[deps.SimpleTraits]]
 deps = ["InteractiveUtils", "MacroTools"]
@@ -1909,12 +1992,17 @@ version = "17.4.0+2"
 # ╠═5658ac7d-2540-4aa6-b3ee-8539ad2cc2dd
 # ╠═f0300914-bf8f-4037-a9d4-82fce5dd445c
 # ╟─8ca62501-62c4-4b43-bc23-c9d1e0e9f14c
+# ╠═e326aaf4-1485-49f8-8368-bf279a2b9bfb
+# ╠═81643f92-f958-4d50-9691-78c6f050819e
 # ╠═af20f058-a10a-11ee-3434-077e84c431ac
 # ╠═fb3d20de-761e-4d40-a8a8-48d76571e67d
 # ╠═d95ace52-2090-4041-afb8-e5a656b2e153
 # ╟─84dccd96-b2cc-4d19-8e38-fd0a0a2113f0
+# ╠═ccbb08ed-54c7-4cae-acbe-28bcb53e7ce1
+# ╠═c7d4940c-7a11-4ff3-94b9-bb95266573c9
+# ╠═d1a975ae-bc29-4427-a764-c58131daf5bd
+# ╠═d1ef64cf-f40b-4a3b-b72e-5440fd2e9084
 # ╠═2bd45386-0384-48ed-b074-237b5c07e2c0
-# ╠═e0c124fd-dce9-402f-8cbf-fbe0c1232139
 # ╠═9f9d596c-0c17-4cde-8ee2-8d42eb579517
 # ╟─762628a9-7884-42ce-8d6b-bddaf2fe69d1
 # ╠═5fc36915-5295-4fe4-bf22-54f57132023e
@@ -1948,7 +2036,7 @@ version = "17.4.0+2"
 # ╟─a78d419d-f13d-43d4-8f07-36834b223843
 # ╠═b8204887-fa61-44c8-a23a-f8302e7b3cf9
 # ╟─f101f985-82d4-4f8d-b4c8-fbddccc4a8db
-# ╠═4f3c98da-5714-459f-837a-30fdc2041f59
+# ╠═df852bbe-fb8b-40b6-a485-3a8ed28f250b
 # ╟─88095e84-b79f-4851-9364-dd3b9a7c7000
 # ╠═cec9523e-f411-40d0-a5f2-ff56571db6f3
 # ╠═2051e782-138c-4bd1-8076-34c63bdf3477

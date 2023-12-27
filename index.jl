@@ -1,6 +1,11 @@
 ### A Pluto.jl notebook ###
 # v0.19.36
 
+#> [frontmatter]
+#> title = "Computer Vision Tutorials"
+#> tags = ["sidebar"]
+#> sidebar = "false"
+
 using Markdown
 using InteractiveUtils
 
@@ -70,6 +75,14 @@ md"""
 ## Results
 """
 
+# ╔═╡ c7ef4fe4-a868-4969-834a-677cafbfbaf5
+to_html(
+	divv(
+		divv(:class => "min-h-screen"),
+		hr(:class => "h-full")
+	)
+)
+
 # ╔═╡ 43f3c01f-6e32-4144-a122-488129d4374b
 md"""
 # Deep Dive
@@ -78,6 +91,11 @@ md"""
 # ╔═╡ 02a475d1-9208-4fb4-b321-bce622e8448d
 md"""
 ## Tutorials
+"""
+
+# ╔═╡ f5ca1509-dbf2-40ed-87f6-9ca9ed2e5aba
+md"""
+## Core Packages
 """
 
 # ╔═╡ dcf15c2f-7356-4e43-8a16-339151ae833b
@@ -108,8 +126,8 @@ end;
 
 # ╔═╡ 3f662845-48cb-477e-a3d9-f1f9dfe7f2d3
 index_title_card(
-	"MedImageAITutorials.jl",
-	"Practical tutorials for deep learning in the field of medical imaging, using Julia.",
+	"ComputerVisionTutorials.jl",
+	"Practical tutorials for deep learning in the field of computer vision with an emphasis on medical imaging, using Julia.",
 	"https://img.freepik.com/free-photo/modern-hospital-machinery-illuminates-blue-mri-scanner-generated-by-ai_188544-44420.jpg?ga=GA1.1.1694943658.1700350224&semt=ais_ai_generated";
 	data_theme = data_theme
 )
@@ -125,6 +143,13 @@ end
 article_list_tutorials = Article[
 	Article("Data Preparation", "tutorials/data_preparation.jl", "https://img.freepik.com/premium-photo/stickers-basic-gift-box-open-with-simple-geometric-creative-concept-boxes-gift-design_655090-499328.jpg?ga=GA1.1.1694943658.1700350224&semt=ais_ai_generated"),	
 	Article("Models", "tutorials/models.jl", "https://img.freepik.com/premium-photo/pile-lego-bricks-with-word-lego-it_822916-171.jpg?ga=GA1.1.1694943658.1700350224&semt=ais_ai_generated"),
+];
+
+# ╔═╡ 49dd6dbd-04dd-4c67-86ec-1111f7ab6ebb
+article_list_packages = Article[
+	Article("Losers.jl", "Losers.jl/index.jl", "https://img.freepik.com/free-vector/low-self-esteem-woman-looking-into-mirror_23-2148714425.jpg?size=626&ext=jpg&ga=GA1.1.1427368820.1695503713&semt=ais"),	
+	Article("DistanceTransforms.jl", "DistanceTransforms.jl/index.jl", "https://img.freepik.com/free-vector/global-communication-background-business-network-vector-design_53876-151122.jpg"),
+	Article("ComputerVisionMetrics.jl", "ComputerVisionMetrics.jl/index.jl", "https://img.freepik.com/free-photo/colorful-bar-graph-sits-table-with-dark-background_1340-34474.jpg"),	
 ];
 
 # ╔═╡ 53bb4fb7-54d9-4626-a388-356db88c738e
@@ -149,6 +174,13 @@ to_html(
     )
 )
 
+# ╔═╡ 16099593-958f-4670-851b-86e71f3fc1d0
+to_html(
+    divv(:class => "flex flex-wrap justify-center items-start",
+        [article_card(article, "accent"; data_theme = data_theme) for article in article_list_packages]...
+    )
+)
+
 # ╔═╡ Cell order:
 # ╟─3f662845-48cb-477e-a3d9-f1f9dfe7f2d3
 # ╟─ba623422-a111-11ee-070a-3fad79960969
@@ -165,13 +197,17 @@ to_html(
 # ╟─e845d847-a924-4f8b-a82f-57227ea2ae6b
 # ╟─dfb180c6-901f-422d-b4ca-6d0b8604f5f6
 # ╟─473e5069-93de-4880-a450-7de2ed8e3949
+# ╟─c7ef4fe4-a868-4969-834a-677cafbfbaf5
 # ╟─43f3c01f-6e32-4144-a122-488129d4374b
 # ╟─02a475d1-9208-4fb4-b321-bce622e8448d
 # ╟─24c3e2cf-bcbb-41b2-a608-801344e455f6
+# ╟─f5ca1509-dbf2-40ed-87f6-9ca9ed2e5aba
+# ╟─16099593-958f-4670-851b-86e71f3fc1d0
 # ╟─dcf15c2f-7356-4e43-8a16-339151ae833b
 # ╟─ee1e03f4-7013-4300-8cd4-1a47272befac
 # ╟─d5b8279a-9df1-41a7-a9af-100a7fb8b44c
 # ╟─4f46e4eb-1640-4c0d-9867-e2002ecb6529
 # ╟─20770955-46bd-4d07-b759-f08604583b01
 # ╟─aa48d79f-00dc-4ab0-bba3-bbefc58c2707
+# ╟─49dd6dbd-04dd-4c67-86ec-1111f7ab6ebb
 # ╟─53bb4fb7-54d9-4626-a388-356db88c738e

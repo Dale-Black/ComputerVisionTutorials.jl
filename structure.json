@@ -27,6 +27,14 @@
       {
         "type": "folder",
         "title": "Losers.jl"
+      },
+      {
+        "type": "folder",
+        "title": "DistanceTransforms.jl"
+      },
+      {
+        "type": "folder",
+        "title": "ComputerVisionMetrics.jl"
       }
     ]
   }
