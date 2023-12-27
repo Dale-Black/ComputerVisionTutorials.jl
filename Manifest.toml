@@ -5,9 +5,9 @@ manifest_format = "2.0"
 project_hash = "3b814d9a28ada2f420a77c92227ffdeb91b17e16"
 
 [[deps.ADTypes]]
-git-tree-sha1 = "332e5d7baeff8497b923b730b994fa480601efc7"
+git-tree-sha1 = "41c37aa88889c171f1300ceac1313c06e891d245"
 uuid = "47edcb42-4c32-4615-8424-f2b9edc5f35b"
-version = "0.2.5"
+version = "0.2.6"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
