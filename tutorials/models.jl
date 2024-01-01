@@ -4,6 +4,9 @@
 using Markdown
 using InteractiveUtils
 
+# ╔═╡ 403888e0-01ef-4f4c-9bd5-406642bee99a
+using Pkg; Pkg.activate(); Pkg.instantiate()
+
 # ╔═╡ dee6ec32-bed8-45e5-bfcb-1456f70f1fbf
 using Lux
 
@@ -934,6 +937,7 @@ version = "17.4.0+2"
 """
 
 # ╔═╡ Cell order:
+# ╠═403888e0-01ef-4f4c-9bd5-406642bee99a
 # ╠═dee6ec32-bed8-45e5-bfcb-1456f70f1fbf
 # ╠═ffd31741-1b93-42a0-9df5-90cfc571b890
 # ╠═6193bd91-ddc3-453f-8fc2-8a6c24cc9767

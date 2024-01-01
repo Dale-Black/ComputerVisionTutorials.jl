@@ -97,7 +97,7 @@ md"""
 to_html(hr())
 
 # ╔═╡ d5b8279a-9df1-41a7-a9af-100a7fb8b44c
-data_theme = "dracula";
+data_theme = "light";
 
 # ╔═╡ 4f46e4eb-1640-4c0d-9867-e2002ecb6529
 function index_title_card(title::String, subtitle::String, image_url::String; data_theme::String = "pastel", border_color::String = "primary")
@@ -137,6 +137,7 @@ end
 # ╔═╡ aa48d79f-00dc-4ab0-bba3-bbefc58c2707
 article_list_tutorials = Article[
 	Article("Data Preparation", "tutorials/data_preparation.jl", "https://img.freepik.com/premium-photo/stickers-basic-gift-box-open-with-simple-geometric-creative-concept-boxes-gift-design_655090-499328.jpg?ga=GA1.1.1694943658.1700350224&semt=ais_ai_generated"),	
+	Article("Heart Segmentation", "tutorials/heart_segmentation.jl", "https://img.freepik.com/free-photo/realistic-heart-shape-studio_23-2150827358.jpg?ga=GA1.1.1694943658.1700350224&semt=ais_ai_generated"),	
 	Article("Models", "tutorials/models.jl", "https://img.freepik.com/premium-photo/pile-lego-bricks-with-word-lego-it_822916-171.jpg?ga=GA1.1.1694943658.1700350224&semt=ais_ai_generated"),
 ];
 

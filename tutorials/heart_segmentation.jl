@@ -39,6 +39,9 @@ using MLUtils: DataLoader, splitobs, mapobs, getobs
 # ╔═╡ 562b3772-89cc-4390-87c3-e7260c8aa86b
 using NIfTI: niread
 
+# ╔═╡ da9cada1-7ea0-4b6b-a338-d8e08b668d28
+using ImageTransformations: imresize
+
 # ╔═╡ db2ccf3a-437a-4dfa-ad05-2526c0e2bde0
 using Glob: glob
 
@@ -96,26 +99,26 @@ data_dir = download_dataset(heart_url, target_directory)
 
 # ╔═╡ 6d34b756-4da8-427c-91f5-dfb022c4e715
 begin
-	struct ImageCASDataset
+	struct HeartSegmentationDataset
 		image_paths::Vector{String}
 		label_paths::Vector{String}
 	end
 	
-	function ImageCASDataset(root_dir::String)
+	function HeartSegmentationDataset(root_dir::String)
 		image_paths = glob("*.nii*", joinpath(root_dir, "imagesTr"))
 		label_paths = glob("*.nii*", joinpath(root_dir, "labelsTr"))
-		return ImageCASDataset(image_paths, label_paths)
+		return HeartSegmentationDataset(image_paths, label_paths)
 	end
 	
-	Base.length(d::ImageCASDataset) = length(d.image_paths)
+	Base.length(d::HeartSegmentationDataset) = length(d.image_paths)
 	
-	function Base.getindex(d::ImageCASDataset, i::Int)
+	function Base.getindex(d::HeartSegmentationDataset, i::Int)
 	    image = niread(d.image_paths[i]).raw
 	    label = niread(d.label_paths[i]).raw
 	    return (image, label)
 	end
 	
-	function Base.getindex(d::ImageCASDataset, idxs::AbstractVector{Int})
+	function Base.getindex(d::HeartSegmentationDataset, idxs::AbstractVector{Int})
 	    images = Vector{Array{Float32, 3}}(undef, length(idxs))
 	    labels = Vector{Array{UInt8, 3}}(undef, length(idxs))
 	    for (index, i) in enumerate(idxs)
@@ -143,25 +146,58 @@ md"""
 """
 
 # ╔═╡ 9577b91b-faa4-4fc5-9ec2-ed8ca94f2afe
-data = ImageCASDataset(data_dir)
+data = HeartSegmentationDataset(data_dir)
 
 # ╔═╡ ae3d24e4-2216-4744-9093-0d2a8bbaae2d
 md"""
 ## Preprocessing
 """
 
-# ╔═╡ 18b31959-9cdf-41d9-a389-7c18febf7b07
-function center_crop(volume::Array{T, 3}, target_size::Tuple{Int, Int, Int}) where {T}
-    center = div.(size(volume), 2)
+# ╔═╡ 2c3cf329-f1f3-49b8-ab11-6189ab564900
+function adjust_image_size(
+    volume::Array{T, 3}, 
+    target_size::Tuple{Int, Int, Int};
+    max_crop_percentage::Float64 = 0.25
+) where T
+    current_size = size(volume)
+    
+    # Check if the image is already the target size
+    if isequal(current_size, target_size)
+        return volume
+    end
 
-    start_idx = max.(1, center .- div.(target_size, 2))
-    end_idx = start_idx .+ target_size .- 1
+    # Calculate the maximum allowable crop size
+    max_crop_size = round.(Int, current_size .* (1 - max_crop_percentage))
 
-	cropped_volume = volume[start_idx[1]:end_idx[1], start_idx[2]:end_idx[2], start_idx[3]:end_idx[3]]
-    return cropped_volume
+    # Resize if the image is smaller than the target size
+    if all(x -> x[1] < x[2], zip(current_size, target_size))
+        return imresize(volume, target_size)
+    end
+
+    # Adjust if the image is larger than the target size
+    if all(x -> x[1] > x[2], zip(current_size, target_size))
+        # Determine crop size, limited by the max crop size
+        crop_size = max.(max_crop_size, target_size)
+
+        # Center crop
+        center = div.(current_size, 2)
+        start_idx = max.(1, center .- div.(crop_size, 2))
+        end_idx = start_idx .+ crop_size .- 1
+		cropped_volume = volume[start_idx[1]:end_idx[1], start_idx[2]:end_idx[2], start_idx[3]:end_idx[3]]
+
+        # Resize if cropped size is not yet the target size
+        if any(x -> x[1] != x[2], zip(size(cropped_volume), target_size))
+            return imresize(cropped_volume, target_size)
+        else
+            return cropped_volume
+        end
+    end
+
+    # Return the original volume if none of the above conditions are met
+    return volume
 end
 
-# ╔═╡ 72827ad5-4820-4545-8099-1033d962970e
+# ╔═╡ 0a03b692-045f-4321-8065-ebca13e94a96
 function one_hot_encode(label::Array{T, 3}, num_classes::Int) where {T}
 	one_hot = zeros(T, size(label)..., num_classes)
 	
@@ -172,34 +208,35 @@ function one_hot_encode(label::Array{T, 3}, num_classes::Int) where {T}
     return one_hot
 end
 
-# ╔═╡ 8ad7b2bb-1672-473a-a7b5-bf505733f7a3
+# ╔═╡ 74e84051-b49e-435a-b448-62aa2aa5911c
 function preprocess_image_label_pair(pair, target_size)
     # Check if pair[1] and pair[2] are individual arrays or collections of arrays
     is_individual = ndims(pair[1]) == 3 && ndims(pair[2]) == 3
 
     if is_individual
         # Handle a single pair
-        cropped_image = center_crop(pair[1], target_size)
-        cropped_label = one_hot_encode(center_crop(pair[2], target_size), 2)
-        processed_image = reshape(cropped_image, size(cropped_image)..., 1)
+        cropped_image = adjust_image_size(pair[1], target_size)
+		cropped_label = Float32.(one_hot_encode(adjust_image_size(pair[2], target_size), 2))
+        processed_image = Float32.(reshape(cropped_image, size(cropped_image)..., 1))
         return (processed_image, cropped_label)
     else
         # Handle a batch of pairs
-		cropped_images = [center_crop(img, target_size) for img in pair[1]]
-		cropped_labels = [one_hot_encode(center_crop(lbl, target_size), 2) for lbl in pair[2]]
-		processed_images = [reshape(img, size(img)..., 1) for img in cropped_images]
+		@info pair[1]
+		cropped_images = Float32.([adjust_image_size(img, target_size) for img in pair[1]])
+		cropped_labels = [one_hot_encode(adjust_image_size(lbl, target_size), 2) for lbl in pair[2]]
+		processed_images = Float32.([reshape(img, size(img)..., 1) for img in cropped_images])
         return (processed_images, cropped_labels)
     end
 end
 
-# ╔═╡ ac2ed012-2b64-42b2-b97c-2a5352af9ec8
+# ╔═╡ 217d073d-c145-4b3d-85c4-eee8d22d1018
 if LuxCUDA.functional()
-	target_size = (128, 128, 64)
+	target_size = (256, 256, 128)
 else
 	target_size = (64, 64, 32)
 end
 
-# ╔═╡ c5539898-6b0c-4172-ba6c-9bfe2819c9fb
+# ╔═╡ f2b8a5ae-1c5c-47ba-8215-8ef7c5619d68
 transformed_data = mapobs(
 	x -> preprocess_image_label_pair(x, target_size),
 	data
@@ -211,15 +248,15 @@ md"""
 """
 
 # ╔═╡ d40f19dc-f06e-44ef-b82b-9763ff1f1189
-train_indices, val_indices = splitobs(transformed_data; at = 0.75)
+train_data, val_data = splitobs(transformed_data; at = 0.75)
 
 # ╔═╡ 4d75f114-225f-45e2-a683-e82ff137d909
 bs = 4
 
 # ╔═╡ 2032b7e6-ceb7-4c08-9b0d-bc704f5e4104
 begin
-	train_loader = DataLoader(train_indices; batchsize = bs, collate = true)
-	val_loader = DataLoader(val_indices; batchsize = bs, collate = true)
+	train_loader = DataLoader(train_data; batchsize = bs, collate = true)
+	val_loader = DataLoader(val_data; batchsize = bs, collate = true)
 end
 
 # ╔═╡ 2ec43028-c1ab-4df7-9cfe-cc1a4919a7cf
@@ -263,6 +300,9 @@ md"""
 
 # ╔═╡ 0f5d7796-2c3d-4b74-86c1-a1d4e3922011
 image_tfm, label_tfm = getobs(transformed_data, 1);
+
+# ╔═╡ 51e9e7d9-a1d2-4fd1-bdad-52851d9498a6
+typeof(image_tfm), typeof(label_tfm)
 
 # ╔═╡ 6e2bfcfb-77e3-4532-a14d-10f4b91f2f54
 @bind z2 Slider(1:target_size[3], show_value = true, default = div(target_size[3], 2))
@@ -336,17 +376,19 @@ md"""
 
 # ╔═╡ 40762509-b26e-47f5-8b49-e7100fdeb72a
 begin
-    struct ContractBlock <: Lux.AbstractExplicitContainerLayer{
+    struct ContractBlock{
+		C1, C2, F1, F2, BN1, BN2, C3, CH
+	} <: Lux.AbstractExplicitContainerLayer{
         (:conv1, :conv2, :bn1, :bn2, :bridge_conv, :sample)
     }
-        conv1::Conv
-        conv2::Conv
-        relu1::Function
-        relu2::Function
-        bn1::BatchNorm
-        bn2::BatchNorm
-        bridge_conv::Conv
-        sample::Chain
+        conv1::C1
+        conv2::C2
+        relu1::F1
+        relu2::F2
+        bn1::BN1
+        bn2::BN2
+        bridge_conv::C3
+        sample::CH
     end
 
     function ContractBlock(
@@ -388,17 +430,19 @@ md"""
 
 # ╔═╡ 70614cac-2e06-48a9-9cf6-9078bc7436bc
 begin
-    struct ExpandBlock <: Lux.AbstractExplicitContainerLayer{
+    struct ExpandBlock{
+		C1, C2, F1, F2, BN1, BN2, C3, CH
+	} <: Lux.AbstractExplicitContainerLayer{
         (:conv1, :conv2, :bn1, :bn2, :bridge_conv, :sample)
     }
-        conv1::Conv
-        conv2::Conv
-        relu1::Function
-        relu2::Function
-        bn1::BatchNorm
-        bn2::BatchNorm
-        bridge_conv::Conv
-        sample::Chain
+        conv1::C1
+        conv2::C2
+        relu1::F1
+        relu2::F2
+        bn1::BN1
+        bn2::BN2
+        bridge_conv::C3
+        sample::CH
     end
 
     function ExpandBlock(
@@ -443,19 +487,21 @@ md"""
 
 # ╔═╡ af56e2f7-2ab8-4ff2-8295-038b3a565cbc
 begin
-    struct UNet <: Lux.AbstractExplicitContainerLayer{
+    struct UNet{
+		CH1, CH2, CB1, CB2, CB3, CB4, EB1, EB2, EB3, C1
+	} <: Lux.AbstractExplicitContainerLayer{
         (:conv1, :conv2, :conv3, :conv4, :conv5, :de_conv1, :de_conv2, :de_conv3, :de_conv4, :last_conv)
     }
-        conv1::Chain
-        conv2::Chain
-        conv3::ContractBlock
-        conv4::ContractBlock
-        conv5::ContractBlock
-        de_conv1::ContractBlock
-        de_conv2::ExpandBlock
-        de_conv3::ExpandBlock
-        de_conv4::ExpandBlock
-        last_conv::Conv
+        conv1::CH1
+        conv2::CH2
+        conv3::CB1
+        conv4::CB2
+        conv5::CB3
+        de_conv1::CB4
+        de_conv2::EB1
+        de_conv3::EB2
+        de_conv4::EB3
+        last_conv::C1
     end
 
     function UNet(channel)
@@ -696,6 +742,7 @@ train_model(model, ps, st, train_loader, num_epochs, dev)
 # ╠═de5efc37-db19-440e-9487-9a7bea84996d
 # ╠═3ab44a2a-692f-4603-a5a8-81f1d260c13e
 # ╠═562b3772-89cc-4390-87c3-e7260c8aa86b
+# ╠═da9cada1-7ea0-4b6b-a338-d8e08b668d28
 # ╠═db2ccf3a-437a-4dfa-ad05-2526c0e2bde0
 # ╠═8e2f2c6d-127d-42a6-9906-970c09a22e61
 # ╟─ec7734c3-33a5-43c7-82db-2db4dbdc9587
@@ -706,12 +753,12 @@ train_model(model, ps, st, train_loader, num_epochs, dev)
 # ╠═6d34b756-4da8-427c-91f5-dfb022c4e715
 # ╠═9577b91b-faa4-4fc5-9ec2-ed8ca94f2afe
 # ╟─ae3d24e4-2216-4744-9093-0d2a8bbaae2d
-# ╠═18b31959-9cdf-41d9-a389-7c18febf7b07
-# ╠═72827ad5-4820-4545-8099-1033d962970e
-# ╠═8ad7b2bb-1672-473a-a7b5-bf505733f7a3
+# ╠═2c3cf329-f1f3-49b8-ab11-6189ab564900
+# ╠═0a03b692-045f-4321-8065-ebca13e94a96
+# ╠═74e84051-b49e-435a-b448-62aa2aa5911c
 # ╠═317c1571-d232-4cab-ac10-9fc3b7ad33b0
-# ╠═ac2ed012-2b64-42b2-b97c-2a5352af9ec8
-# ╠═c5539898-6b0c-4172-ba6c-9bfe2819c9fb
+# ╠═217d073d-c145-4b3d-85c4-eee8d22d1018
+# ╠═f2b8a5ae-1c5c-47ba-8215-8ef7c5619d68
 # ╟─03bab55a-6e5e-4b9f-b56a-7e9f993576eb
 # ╠═d40f19dc-f06e-44ef-b82b-9763ff1f1189
 # ╠═4d75f114-225f-45e2-a683-e82ff137d909
@@ -723,6 +770,7 @@ train_model(model, ps, st, train_loader, num_epochs, dev)
 # ╟─d7e75a72-8281-432c-abab-c254f8c94d3c
 # ╟─9dc89870-3d99-472e-8974-712e34a3a789
 # ╠═0f5d7796-2c3d-4b74-86c1-a1d4e3922011
+# ╠═51e9e7d9-a1d2-4fd1-bdad-52851d9498a6
 # ╟─6e2bfcfb-77e3-4532-a14d-10f4b91f2f54
 # ╟─bae79c05-034a-4c39-801a-01229b618e94
 # ╟─1494df6e-f407-42c4-8404-1f4871a2f817
@@ -741,8 +789,8 @@ train_model(model, ps, st, train_loader, num_epochs, dev)
 # ╠═c283f9a3-6a76-4186-859f-21cd9efc131f
 # ╠═69880e6d-162a-4aae-94eb-103bd35ac3c9
 # ╠═12d42392-ad7b-4c5f-baf5-1f2c6052669e
-# ╟─70bc36db-9ee3-4e1d-992d-abbf55c52070
-# ╟─8598dfca-8929-4ec3-9eb5-09c240c3fdba
+# ╠═70bc36db-9ee3-4e1d-992d-abbf55c52070
+# ╠═8598dfca-8929-4ec3-9eb5-09c240c3fdba
 # ╟─7cde37c8-4c59-4583-8995-2b01eda95cb3
 # ╠═10007ee0-5339-4544-bbcd-ac4eed043f50
 # ╟─a25bdfe6-b24d-446b-926f-6e0727d647a2
