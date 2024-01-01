@@ -19,6 +19,11 @@
           },
           {
             "type": "notebook",
+            "path": "tutorials/heart_segmentation.jl",
+            "title": "Heart Segmentation"
+          },
+          {
+            "type": "notebook",
             "path": "tutorials/models.jl",
             "title": "Models"
           }
@@ -26,15 +31,18 @@
       },
       {
         "type": "folder",
-        "title": "Losers.jl"
+        "title": "Losers.jl",
+        "path": "Losers.jl"
       },
       {
         "type": "folder",
-        "title": "DistanceTransforms.jl"
+        "title": "DistanceTransforms.jl",
+        "path": "DistanceTransforms.jl"
       },
       {
         "type": "folder",
-        "title": "ComputerVisionMetrics.jl"
+        "title": "ComputerVisionMetrics.jl",
+        "path": "ComputerVisionMetrics.jl"
       }
     ]
   }

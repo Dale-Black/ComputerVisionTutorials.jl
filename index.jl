@@ -1,17 +1,12 @@
 ### A Pluto.jl notebook ###
 # v0.19.36
 
-#> [frontmatter]
-#> title = "Computer Vision Tutorials"
-#> tags = ["sidebar"]
-#> sidebar = "false"
-
 using Markdown
 using InteractiveUtils
 
 # ╔═╡ 4b704955-ea7f-48fc-b756-f2c0d860d60d
 # ╠═╡ show_logs = false
-using Pkg; Pkg.activate(".")
+using Pkg; Pkg.activate("."); Pkg.instantiate()
 
 # ╔═╡ bbae4dce-5490-4d2f-a97a-f67c6b93a7cc
 using Lux
