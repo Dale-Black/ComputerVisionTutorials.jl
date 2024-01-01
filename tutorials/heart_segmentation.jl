@@ -2,6 +2,7 @@
 # v0.19.36
 
 #> [frontmatter]
+#> title = "Heart Segmentation"
 
 using Markdown
 using InteractiveUtils
