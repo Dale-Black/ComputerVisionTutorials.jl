@@ -45,12 +45,12 @@ using ImageTransformations: imresize
 # ╔═╡ db2ccf3a-437a-4dfa-ad05-2526c0e2bde0
 using Glob: glob
 
-# ╔═╡ 8e2f2c6d-127d-42a6-9906-970c09a22e61
-using CairoMakie: Figure, Axis, heatmap!
-
 # ╔═╡ 317c1571-d232-4cab-ac10-9fc3b7ad33b0
 # ╠═╡ show_logs = false
 using LuxCUDA
+
+# ╔═╡ 8e2f2c6d-127d-42a6-9906-970c09a22e61
+using CairoMakie: Figure, Axis, heatmap!, scatterlines!, axislegend, ylims!
 
 # ╔═╡ a3f44d7c-efa3-41d0-9509-b099ab7f09d4
 using Lux
@@ -63,6 +63,18 @@ using ComputerVisionMetrics: hausdorff_metric, dice_metric
 
 # ╔═╡ c283f9a3-6a76-4186-859f-21cd9efc131f
 using ChainRulesCore: ignore_derivatives
+
+# ╔═╡ 70bc36db-9ee3-4e1d-992d-abbf55c52070
+using Losers: hausdorff_loss, dice_loss
+
+# ╔═╡ 2f6f0755-d71f-4239-a72b-88a545ba8ca1
+using Dates: now
+
+# ╔═╡ e457a411-2e7b-43b3-a247-23eff94222b0
+using DataFrames: DataFrame
+
+# ╔═╡ b04c696b-b404-4976-bfc1-51889ef1d60f
+using JLD2: jldsave
 
 # ╔═╡ c8d6553a-90df-4aeb-aa6d-a213e16fab48
 TableOfContents()
@@ -153,52 +165,37 @@ md"""
 ## Preprocessing
 """
 
-# ╔═╡ 2c3cf329-f1f3-49b8-ab11-6189ab564900
-function adjust_image_size(
+# ╔═╡ 61bbecff-868a-4ca0-afb9-dc8aff786783
+function crop_image(
     volume::Array{T, 3}, 
-    target_size::Tuple{Int, Int, Int};
-    max_crop_percentage::Float64 = 0.25
+    target_size::Tuple{Int, Int, Int}, 
+    max_crop_percentage::Float64 = 0.15
 ) where T
     current_size = size(volume)
-    
-    # Check if the image is already the target size
-    if isequal(current_size, target_size)
-        return volume
-    end
 
-    # Calculate the maximum allowable crop size
-    max_crop_size = round.(Int, current_size .* (1 - max_crop_percentage))
+	# Calculate the maximum allowable crop size, only for dimensions larger than target size
+	max_crop_size = [min(cs, round(Int, ts + (cs - ts) * max_crop_percentage)) for (cs, ts) in zip(current_size, target_size)]
 
-    # Resize if the image is smaller than the target size
-    if all(x -> x[1] < x[2], zip(current_size, target_size))
-        return imresize(volume, target_size)
-    end
+    # Center crop for dimensions needing cropping
+	start_idx = [
+		cs > ts ? max(1, div(cs, 2) - div(ms, 2)) : 1 for (cs, ts, ms) in zip(current_size, target_size, max_crop_size)
+	]
+    end_idx = start_idx .+ max_crop_size .- 1
+	cropped_volume = volume[start_idx[1]:end_idx[1], start_idx[2]:end_idx[2], start_idx[3]:end_idx[3]]
 
-    # Adjust if the image is larger than the target size
-    if all(x -> x[1] > x[2], zip(current_size, target_size))
-        # Determine crop size, limited by the max crop size
-        crop_size = max.(max_crop_size, target_size)
+    return cropped_volume
+end
 
-        # Center crop
-        center = div.(current_size, 2)
-        start_idx = max.(1, center .- div.(crop_size, 2))
-        end_idx = start_idx .+ crop_size .- 1
-		cropped_volume = volume[start_idx[1]:end_idx[1], start_idx[2]:end_idx[2], start_idx[3]:end_idx[3]]
-
-        # Resize if cropped size is not yet the target size
-        if any(x -> x[1] != x[2], zip(size(cropped_volume), target_size))
-            return imresize(cropped_volume, target_size)
-        else
-            return cropped_volume
-        end
-    end
-
-    # Return the original volume if none of the above conditions are met
-    return volume
+# ╔═╡ 6b8e2236-cd17-452f-8e68-93c9418027cd
+function resize_image(
+    volume::Array{T, 3}, 
+    target_size::Tuple{Int, Int, Int}
+) where T
+    return imresize(volume, target_size)
 end
 
 # ╔═╡ 0a03b692-045f-4321-8065-ebca13e94a96
-function one_hot_encode(label::Array{T, 3}, num_classes::Int) where {T}
+function one_hot_encode(label::Array{T, 3}, num_classes::Int) where T
 	one_hot = zeros(T, size(label)..., num_classes)
 	
     for k in 1:num_classes
@@ -215,23 +212,33 @@ function preprocess_image_label_pair(pair, target_size)
 
     if is_individual
         # Handle a single pair
-        cropped_image = adjust_image_size(pair[1], target_size)
-		cropped_label = Float32.(one_hot_encode(adjust_image_size(pair[2], target_size), 2))
-        processed_image = Float32.(reshape(cropped_image, size(cropped_image)..., 1))
-        return (processed_image, cropped_label)
+        cropped_image = crop_image(pair[1], target_size)
+        resized_image = resize_image(cropped_image, target_size)
+        processed_image = Float32.(reshape(resized_image, size(resized_image)..., 1))
+
+        cropped_label = crop_image(pair[2], target_size)
+        resized_label = resize_image(cropped_label, target_size)
+        one_hot_label = Float32.(one_hot_encode(resized_label, 2))
+
+        return (processed_image, one_hot_label)
     else
         # Handle a batch of pairs
-		@info pair[1]
-		cropped_images = Float32.([adjust_image_size(img, target_size) for img in pair[1]])
-		cropped_labels = [one_hot_encode(adjust_image_size(lbl, target_size), 2) for lbl in pair[2]]
-		processed_images = Float32.([reshape(img, size(img)..., 1) for img in cropped_images])
-        return (processed_images, cropped_labels)
+        cropped_images = [crop_image(img, target_size) for img in pair[1]]
+        resized_images = [resize_image(img, target_size) for img in cropped_images]
+		processed_images = [Float32.(reshape(img, size(img)..., 1)) for img in resized_images]
+
+        cropped_labels = [crop_image(lbl, target_size) for lbl in pair[2]]
+        resized_labels = [resize_image(lbl, target_size) for lbl in cropped_labels]
+        one_hot_labels = [Float32.(one_hot_encode(lbl, 2)) for lbl in resized_labels]
+
+        return (processed_images, one_hot_labels)
     end
 end
 
 # ╔═╡ 217d073d-c145-4b3d-85c4-eee8d22d1018
 if LuxCUDA.functional()
-	target_size = (256, 256, 128)
+	# target_size = (256, 256, 128)
+	target_size = (128, 128, 64)
 else
 	target_size = (64, 64, 32)
 end
@@ -576,14 +583,30 @@ md"""
 # Training Set Up
 """
 
+# ╔═╡ 1b5ae165-1069-4638-829a-471b907cce86
+import CSV
+
 # ╔═╡ 69880e6d-162a-4aae-94eb-103bd35ac3c9
 import Zygote
 
 # ╔═╡ 12d42392-ad7b-4c5f-baf5-1f2c6052669e
 import Optimisers
 
-# ╔═╡ 70bc36db-9ee3-4e1d-992d-abbf55c52070
-# using Losers: hausdorff_loss, dice_loss
+# ╔═╡ 7cde37c8-4c59-4583-8995-2b01eda95cb3
+md"""
+## Optimiser
+"""
+
+# ╔═╡ 10007ee0-5339-4544-bbcd-ac4eed043f50
+function create_optimiser(ps)
+    opt = Optimisers.ADAM(0.01f0)
+    return Optimisers.setup(opt, ps)
+end
+
+# ╔═╡ a25bdfe6-b24d-446b-926f-6e0727d647a2
+md"""
+## Loss function
+"""
 
 # ╔═╡ 8598dfca-8929-4ec3-9eb5-09c240c3fdba
 # function compute_loss(x, y, model, ps, st, epoch)
@@ -616,27 +639,6 @@ import Optimisers
 #     return loss / size(y, 5), y_pred_binary, st
 # end
 
-# ╔═╡ 7cde37c8-4c59-4583-8995-2b01eda95cb3
-md"""
-## Optimiser
-"""
-
-# ╔═╡ 10007ee0-5339-4544-bbcd-ac4eed043f50
-function create_optimiser(ps)
-    opt = Optimisers.ADAM(0.01f0)
-    return Optimisers.setup(opt, ps)
-end
-
-# ╔═╡ a25bdfe6-b24d-446b-926f-6e0727d647a2
-md"""
-## Loss function
-"""
-
-# ╔═╡ c0881c99-6cc8-4518-810a-17f631b3eb7b
-function dice_loss(ŷ, y, ϵ=1e-5)
-    return loss = 1 - ((2 * sum(ŷ .* y) + ϵ) / (sum(ŷ .* ŷ) + sum(y .* y) + ϵ))
-end
-
 # ╔═╡ 496712da-3cf0-4fbc-b869-72372e73612b
 function compute_loss(x, y, model, ps, st)
 
@@ -661,7 +663,7 @@ end
 
 # ╔═╡ 45949f7f-4e4a-4857-af43-ff013dbdd137
 md"""
-# Train
+# Training
 """
 
 # ╔═╡ 402ba194-350e-4ff3-832b-6651be1d9ce7
@@ -676,20 +678,43 @@ begin
 	ps, st = ps |> dev, st |> dev
 end
 
-# ╔═╡ bacc8b9f-8b8d-4230-bcff-eb330ae328b1
-function train_model(model, ps, st, train_loader, num_epochs, dev)
+# ╔═╡ b7561ff5-d704-4301-b038-c02bbba91ae2
+md"""
+## Train
+"""
+
+# ╔═╡ 1e79232f-bda2-459a-bc03-85cd8afab3bf
+function train_model(model, ps, st, train_loader, val_loader, num_epochs, dev)
     opt_state = create_optimiser(ps)
 
+    # Initialize DataFrame to store metrics
+    metrics_df = DataFrame(
+        "Epoch" => Int[], 
+		"Train_Loss" => Float64[],
+        "Validation_Loss" => Float64[], 
+        "Dice_Metric" => Float64[],
+        "Hausdorff_Metric" => Float64[],
+        "Epoch_Duration" => String[]
+    )
+
     for epoch in 1:num_epochs
-		@info "Epoch: $epoch"
+        @info "Epoch: $epoch"
+
+        # Start timing the epoch
+        epoch_start_time = now()
 
 		# Training Phase
+		num_batches_train = 0
+		total_train_loss = 0.0
         for (x, y) in train_loader
+			num_batches_train += 1
+			@info "Step: $num_batches_train"
 			x, y = x |> dev, y |> dev
 			
             # Forward pass
             y_pred, st = Lux.apply(model, x, ps, st)
             loss, y_pred, st = compute_loss(x, y, model, ps, st)
+			total_train_loss += loss
 			# @info "Training Loss: $loss"
 
             # Backward pass
@@ -699,22 +724,60 @@ function train_model(model, ps, st, train_loader, num_epochs, dev)
             # Update parameters
             opt_state, ps = Optimisers.update(opt_state, ps, gs)
         end
+		
+		avg_train_loss = total_train_loss / num_batches_train
+		@info "avg_train_loss: $avg_train_loss"
 
 		# Validation Phase
-		total_loss = 0.0
+		total_val_loss = 0.0
+		total_dice = 0.0
+		total_hausdorff = 0.0
 		num_batches = 0
-	    for (x, y) in val_loader
-			x, y = x |> dev, y |> dev
-			
-	        # Forward Pass
-	        y_pred, st = Lux.apply(model, x, ps, st)
-	        loss, _, _ = compute_loss(x, y, model, ps, st)
-	
-	        total_loss += loss
-	        num_batches += 1
-	    end
-		avg_loss = total_loss / num_batches
-		@info "Validation Loss: $avg_loss"
+		for (x, y) in val_loader
+		    x, y = x |> dev, y |> dev
+		    
+		    # Forward Pass
+		    y_pred, st = Lux.apply(model, x, ps, st)
+		
+		    # Apply softmax and convert to binary
+		    y_pred_softmax = softmax(y_pred, dims=4)
+		    y_pred_binary = round.(y_pred_softmax[:, :, :, 2, :])
+		    y_binary = y[:, :, :, 2, :]
+		
+		    # Compute loss
+		    loss, _, _ = compute_loss(x, y, model, ps, st)
+		
+		    # Process batch for metrics
+		    for b in axes(y_pred_binary, 5)
+		        _y_pred = Bool.(y_pred_binary[:, :, :, b]) |> cpu_device()
+		        _y = Bool.(y_binary[:, :, :, b]) |> cpu_device()
+		
+		        total_dice += dice_metric(_y_pred, _y)
+		        total_hausdorff += hausdorff_metric(_y_pred, _y)
+		    end
+		
+		    total_val_loss += loss
+		    num_batches += 1
+		end
+		
+		# Calculate average metrics
+		avg_val_loss = total_val_loss / num_batches
+		avg_dice = total_dice / num_batches
+		avg_hausdorff = total_hausdorff / num_batches
+		@info "avg_val_loss: $avg_val_loss"
+		@info "avg_dice: $avg_dice"
+		@info "avg_hausdorff: $avg_hausdorff"
+
+        # Calculate and log time taken for the epoch
+        epoch_duration = now() - epoch_start_time
+
+        # Append metrics to the DataFrame
+		push!(metrics_df, [epoch, avg_train_loss, avg_val_loss, avg_dice, avg_hausdorff, string(epoch_duration)])
+
+        # Write DataFrame to CSV file
+        CSV.write("training_metrics.csv", metrics_df)
+
+        @info "Metrics logged for Epoch $epoch"
     end
 
     return ps, st
@@ -722,13 +785,59 @@ end
 
 # ╔═╡ a2e88851-227a-4719-8828-6064f9d3ef81
 if LuxCUDA.functional()
-	num_epochs = 20
+	num_epochs = 10
 else
 	num_epochs = 2
 end
 
 # ╔═╡ 5cae73af-471c-4068-b9ff-5bc03dd0472d
-train_model(model, ps, st, train_loader, num_epochs, dev)
+# ps_final, st_final = train_model(model, ps, st, train_loader, val_loader, num_epochs, dev);
+
+# ╔═╡ 0dee7c0e-c239-49a4-93c9-5a856b3da883
+md"""
+## Visualize Training
+"""
+
+# ╔═╡ 0bf3a26a-9e18-43d0-b059-d37e8f2e3645
+df = CSV.read("training_metrics.csv", DataFrame)
+
+# ╔═╡ bc72bff8-a4a8-4736-9aa2-0e87eed243ba
+let
+	f = Figure()
+	ax = Axis(
+		f[1, 1],
+		title = "Losses"
+	)
+	
+	scatterlines!(df[!, :Epoch], df[!, :Train_Loss], label = "Train Loss")
+	scatterlines!(df[!, :Epoch], df[!, :Validation_Loss], label = "Validation Loss")
+
+	ylims!(low = 0, high = 1.2)
+	axislegend(ax; position = :lc)
+
+	ax = Axis(
+		f[2, 1],
+		title = "Metrics"
+	)
+	scatterlines!(df[!, :Epoch], df[!, :Dice_Metric], label = "Dice Metric")
+	scatterlines!(df[!, :Epoch], df[!, :Hausdorff_Metric], label = "Hausdorff Metric")
+
+	axislegend(ax; position = :lc)
+
+	
+	f
+end
+
+# ╔═╡ ca57dee1-2669-4202-801d-c88b4d3d7c8d
+md"""
+# Save Model
+"""
+
+# ╔═╡ 7b9b554e-2999-4c57-805e-7bc0d7a0b4e7
+jldsave("model_params.jld2"; ps_final)
+
+# ╔═╡ 6432d227-3ff6-4230-9f52-c3e57ba78618
+jldsave("model_states.jld2"; st_final)
 
 # ╔═╡ Cell order:
 # ╠═d4f7e164-f9a6-47ee-85a7-dd4e0dec10ee
@@ -744,7 +853,6 @@ train_model(model, ps, st, train_loader, num_epochs, dev)
 # ╠═562b3772-89cc-4390-87c3-e7260c8aa86b
 # ╠═da9cada1-7ea0-4b6b-a338-d8e08b668d28
 # ╠═db2ccf3a-437a-4dfa-ad05-2526c0e2bde0
-# ╠═8e2f2c6d-127d-42a6-9906-970c09a22e61
 # ╟─ec7734c3-33a5-43c7-82db-2db4dbdc9587
 # ╠═cdfd2412-897d-4642-bb69-f8031c418446
 # ╠═b1516500-ad83-41d2-8a1d-093cd0d948e3
@@ -753,7 +861,8 @@ train_model(model, ps, st, train_loader, num_epochs, dev)
 # ╠═6d34b756-4da8-427c-91f5-dfb022c4e715
 # ╠═9577b91b-faa4-4fc5-9ec2-ed8ca94f2afe
 # ╟─ae3d24e4-2216-4744-9093-0d2a8bbaae2d
-# ╠═2c3cf329-f1f3-49b8-ab11-6189ab564900
+# ╠═61bbecff-868a-4ca0-afb9-dc8aff786783
+# ╠═6b8e2236-cd17-452f-8e68-93c9418027cd
 # ╠═0a03b692-045f-4321-8065-ebca13e94a96
 # ╠═74e84051-b49e-435a-b448-62aa2aa5911c
 # ╠═317c1571-d232-4cab-ac10-9fc3b7ad33b0
@@ -764,6 +873,7 @@ train_model(model, ps, st, train_loader, num_epochs, dev)
 # ╠═4d75f114-225f-45e2-a683-e82ff137d909
 # ╠═2032b7e6-ceb7-4c08-9b0d-bc704f5e4104
 # ╟─2ec43028-c1ab-4df7-9cfe-cc1a4919a7cf
+# ╠═8e2f2c6d-127d-42a6-9906-970c09a22e61
 # ╟─a6316144-c809-4d2a-bda1-d5128dcf89d3
 # ╠═f8fc2cee-c1bd-477d-9595-9427e8764bd6
 # ╟─7cb986f8-b338-4046-b569-493e443a8dcb
@@ -787,19 +897,29 @@ train_model(model, ps, st, train_loader, num_epochs, dev)
 # ╠═a6669580-de24-4111-a7cb-26d3e727a12e
 # ╠═dfc9377a-7cc1-43ba-bb43-683d24e67d79
 # ╠═c283f9a3-6a76-4186-859f-21cd9efc131f
+# ╠═70bc36db-9ee3-4e1d-992d-abbf55c52070
+# ╠═2f6f0755-d71f-4239-a72b-88a545ba8ca1
+# ╠═e457a411-2e7b-43b3-a247-23eff94222b0
+# ╠═1b5ae165-1069-4638-829a-471b907cce86
 # ╠═69880e6d-162a-4aae-94eb-103bd35ac3c9
 # ╠═12d42392-ad7b-4c5f-baf5-1f2c6052669e
-# ╠═70bc36db-9ee3-4e1d-992d-abbf55c52070
-# ╠═8598dfca-8929-4ec3-9eb5-09c240c3fdba
 # ╟─7cde37c8-4c59-4583-8995-2b01eda95cb3
 # ╠═10007ee0-5339-4544-bbcd-ac4eed043f50
 # ╟─a25bdfe6-b24d-446b-926f-6e0727d647a2
-# ╠═c0881c99-6cc8-4518-810a-17f631b3eb7b
+# ╠═8598dfca-8929-4ec3-9eb5-09c240c3fdba
 # ╠═496712da-3cf0-4fbc-b869-72372e73612b
 # ╟─45949f7f-4e4a-4857-af43-ff013dbdd137
 # ╠═402ba194-350e-4ff3-832b-6651be1d9ce7
 # ╠═bbdaf5c5-9faa-4b61-afab-c0242b8ca034
 # ╠═6ec3e34b-1c57-4cfb-a50d-ee786c2e4559
-# ╠═bacc8b9f-8b8d-4230-bcff-eb330ae328b1
+# ╟─b7561ff5-d704-4301-b038-c02bbba91ae2
+# ╠═1e79232f-bda2-459a-bc03-85cd8afab3bf
 # ╠═a2e88851-227a-4719-8828-6064f9d3ef81
 # ╠═5cae73af-471c-4068-b9ff-5bc03dd0472d
+# ╟─0dee7c0e-c239-49a4-93c9-5a856b3da883
+# ╠═0bf3a26a-9e18-43d0-b059-d37e8f2e3645
+# ╟─bc72bff8-a4a8-4736-9aa2-0e87eed243ba
+# ╟─ca57dee1-2669-4202-801d-c88b4d3d7c8d
+# ╠═b04c696b-b404-4976-bfc1-51889ef1d60f
+# ╠═7b9b554e-2999-4c57-805e-7bc0d7a0b4e7
+# ╠═6432d227-3ff6-4230-9f52-c3e57ba78618
