@@ -791,7 +791,7 @@ else
 end
 
 # ╔═╡ 5cae73af-471c-4068-b9ff-5bc03dd0472d
-# ps_final, st_final = train_model(model, ps, st, train_loader, val_loader, num_epochs, dev);
+ps_final, st_final = train_model(model, ps, st, train_loader, val_loader, num_epochs, dev);
 
 # ╔═╡ 0dee7c0e-c239-49a4-93c9-5a856b3da883
 md"""
