@@ -70,15 +70,15 @@ using Losers: hausdorff_loss, dice_loss
 # ╔═╡ 2f6f0755-d71f-4239-a72b-88a545ba8ca1
 using Dates: now
 
+# ╔═╡ b04c696b-b404-4976-bfc1-51889ef1d60f
+using JLD2: jldsave
+
 # ╔═╡ e457a411-2e7b-43b3-a247-23eff94222b0
 using DataFrames: DataFrame
 
 # ╔═╡ ec8d4131-d8c0-4bdc-9479-d96dc712567c
 # ╠═╡ show_logs = false
 using ParameterSchedulers: Exp
-
-# ╔═╡ b04c696b-b404-4976-bfc1-51889ef1d60f
-using JLD2: jldsave
 
 # ╔═╡ c8d6553a-90df-4aeb-aa6d-a213e16fab48
 TableOfContents()
@@ -120,30 +120,46 @@ begin
 		label_paths::Vector{String}
 	end
 	
-	function HeartSegmentationDataset(root_dir::String)
-		image_paths = glob("*.nii*", joinpath(root_dir, "imagesTr"))
-		label_paths = glob("*.nii*", joinpath(root_dir, "labelsTr"))
-		return HeartSegmentationDataset(image_paths, label_paths)
+	function HeartSegmentationDataset(root_dir::String; is_test::Bool = false)
+	    if is_test
+	        image_paths = glob("*.nii*", joinpath(root_dir, "imagesTs"))
+	        return HeartSegmentationDataset(image_paths, String[])
+	    else
+	        image_paths = glob("*.nii*", joinpath(root_dir, "imagesTr"))
+	        label_paths = glob("*.nii*", joinpath(root_dir, "labelsTr"))
+	        return HeartSegmentationDataset(image_paths, label_paths)
+	    end
 	end
 	
 	Base.length(d::HeartSegmentationDataset) = length(d.image_paths)
 	
 	function Base.getindex(d::HeartSegmentationDataset, i::Int)
 	    image = niread(d.image_paths[i]).raw
-	    label = niread(d.label_paths[i]).raw
-	    return (image, label)
+	    if !isempty(d.label_paths)
+	        label = niread(d.label_paths[i]).raw
+	        return (image, label)
+	    else
+	        return image
+	    end
 	end
 	
 	function Base.getindex(d::HeartSegmentationDataset, idxs::AbstractVector{Int})
 	    images = Vector{Array{Float32, 3}}(undef, length(idxs))
-	    labels = Vector{Array{UInt8, 3}}(undef, length(idxs))
+		labels = isempty(d.label_paths) ? nothing : Vector{Array{UInt8, 3}}(undef, length(idxs))
+	
 	    for (index, i) in enumerate(idxs)
 	        images[index] = niread(d.image_paths[i]).raw
-	        labels[index]  = niread(d.label_paths[i]).raw
+	        if labels !== nothing
+	            labels[index] = niread(d.label_paths[i]).raw
+	        end
 	    end
-	    return (images, labels)
+	
+	    if labels !== nothing
+	        return (images, labels)
+	    else
+	        return images
+	    end
 	end
-
 end
 
 # ╔═╡ af798f6b-7549-4253-b02b-2ed20dc1125b
@@ -210,29 +226,55 @@ function one_hot_encode(label::Array{T, 3}, num_classes::Int) where T
 end
 
 # ╔═╡ 74e84051-b49e-435a-b448-62aa2aa5911c
-function preprocess_image_label_pair(pair, target_size)
+# function preprocess_image_label_pair(pair, target_size)
+#     # Check if pair[1] and pair[2] are individual arrays or collections of arrays
+#     is_individual = ndims(pair[1]) == 3 && ndims(pair[2]) == 3
+
+#     if is_individual
+#         # Handle a single pair
+#         cropped_image = crop_image(pair[1], target_size)
+#         resized_image = resize_image(cropped_image, target_size)
+#         processed_image = Float32.(reshape(resized_image, size(resized_image)..., 1))
+
+#         cropped_label = crop_image(pair[2], target_size)
+#         resized_label = resize_image(cropped_label, target_size)
+#         one_hot_label = Float32.(one_hot_encode(resized_label, 2))
+
+#         return (processed_image, one_hot_label)
+#     else
+#         # Handle a batch of pairs
+#         cropped_images = [crop_image(img, target_size) for img in pair[1]]
+#         resized_images = [resize_image(img, target_size) for img in cropped_images]
+# 		processed_images = [Float32.(reshape(img, size(img)..., 1)) for img in resized_images]
+
+#         cropped_labels = [crop_image(lbl, target_size) for lbl in pair[2]]
+#         resized_labels = [resize_image(lbl, target_size) for lbl in cropped_labels]
+#         one_hot_labels = [Float32.(one_hot_encode(lbl, 2)) for lbl in resized_labels]
+
+#         return (processed_images, one_hot_labels)
+#     end
+# end
+
+# ╔═╡ e91fa0c9-cde9-4416-9e6a-3faa4f8af717
+function preprocess_data(pair, target_size)
     # Check if pair[1] and pair[2] are individual arrays or collections of arrays
     is_individual = ndims(pair[1]) == 3 && ndims(pair[2]) == 3
 
     if is_individual
         # Handle a single pair
-        cropped_image = crop_image(pair[1], target_size)
-        resized_image = resize_image(cropped_image, target_size)
+        resized_image = resize_image(pair[1], target_size)
         processed_image = Float32.(reshape(resized_image, size(resized_image)..., 1))
 
-        cropped_label = crop_image(pair[2], target_size)
-        resized_label = resize_image(cropped_label, target_size)
+        resized_label = resize_image(pair[2], target_size)
         one_hot_label = Float32.(one_hot_encode(resized_label, 2))
 
         return (processed_image, one_hot_label)
     else
         # Handle a batch of pairs
-        cropped_images = [crop_image(img, target_size) for img in pair[1]]
-        resized_images = [resize_image(img, target_size) for img in cropped_images]
-		processed_images = [Float32.(reshape(img, size(img)..., 1)) for img in resized_images]
+        resized_images = [resize_image(img, target_size) for img in pair[1]]
+        processed_images = [Float32.(reshape(img, size(img)..., 1)) for img in resized_images]
 
-        cropped_labels = [crop_image(lbl, target_size) for lbl in pair[2]]
-        resized_labels = [resize_image(lbl, target_size) for lbl in cropped_labels]
+        resized_labels = [resize_image(lbl, target_size) for lbl in pair[2]]
         one_hot_labels = [Float32.(one_hot_encode(lbl, 2)) for lbl in resized_labels]
 
         return (processed_images, one_hot_labels)
@@ -242,14 +284,15 @@ end
 # ╔═╡ 217d073d-c145-4b3d-85c4-eee8d22d1018
 if LuxCUDA.functional()
 	# target_size = (256, 256, 128)
-	target_size = (128, 128, 64)
+	# target_size = (128, 128, 64)
+	target_size = (64, 64, 64)
 else
 	target_size = (64, 64, 32)
 end
 
 # ╔═╡ f2b8a5ae-1c5c-47ba-8215-8ef7c5619d68
 transformed_data = mapobs(
-	x -> preprocess_image_label_pair(x, target_size),
+	x -> preprocess_data(x, target_size),
 	data
 )
 
@@ -602,36 +645,36 @@ md"""
 """
 
 # ╔═╡ ca87af51-1e56-48f7-8343-1b4e8fe1c91a
-begin
-    struct Scheduler{T, F}<: Optimisers.AbstractRule
-        constructor::F
-        schedule::T
-    end
+# begin
+#     struct Scheduler{T, F}<: Optimisers.AbstractRule
+#         constructor::F
+#         schedule::T
+#     end
 
-    _get_opt(scheduler::Scheduler, t) = scheduler.constructor(scheduler.schedule(t))
+#     _get_opt(scheduler::Scheduler, t) = scheduler.constructor(scheduler.schedule(t))
 
-    Optimisers.init(o::Scheduler, x::AbstractArray) =
-        (t = 1, opt = Optimisers.init(_get_opt(o, 1), x))
+#     Optimisers.init(o::Scheduler, x::AbstractArray) =
+#         (t = 1, opt = Optimisers.init(_get_opt(o, 1), x))
 
-    function Optimisers.apply!(o::Scheduler, state, x, dx)
-        opt = _get_opt(o, state.t)
-        new_state, new_dx = Optimisers.apply!(opt, state.opt, x, dx)
+#     function Optimisers.apply!(o::Scheduler, state, x, dx)
+#         opt = _get_opt(o, state.t)
+#         new_state, new_dx = Optimisers.apply!(opt, state.opt, x, dx)
 
-        return (t = state.t + 1, opt = new_state), new_dx
-    end
-end
+#         return (t = state.t + 1, opt = new_state), new_dx
+#     end
+# end
 
 # ╔═╡ 0390bcf5-4cd6-49ba-860a-6f94f8ba6ded
-function create_optimiser(ps)
-    opt = Scheduler(Exp(λ = 1e-2, γ = 0.8)) do lr Optimisers.Adam(0.0001f0) end
-    return Optimisers.setup(opt, ps)
-end
-
-# ╔═╡ 10007ee0-5339-4544-bbcd-ac4eed043f50
 # function create_optimiser(ps)
-#     opt = Optimisers.ADAM(0.01f0)
+#     opt = Scheduler(Exp(λ = 1e-2, γ = 0.8)) do lr Optimisers.Adam(0.0001f0) end
 #     return Optimisers.setup(opt, ps)
 # end
+
+# ╔═╡ 10007ee0-5339-4544-bbcd-ac4eed043f50
+function create_optimiser(ps)
+    opt = Optimisers.ADAM(0.01f0)
+    return Optimisers.setup(opt, ps)
+end
 
 # ╔═╡ a25bdfe6-b24d-446b-926f-6e0727d647a2
 md"""
@@ -754,6 +797,9 @@ function train_model(model, ps, st, train_loader, val_loader, num_epochs, dev)
             # Update parameters
             opt_state, ps = Optimisers.update(opt_state, ps, gs)
         end
+
+		# Calculate and log time taken for the epoch
+        epoch_duration = now() - epoch_start_time
 		
 		avg_train_loss = total_train_loss / num_batches_train
 		@info "avg_train_loss: $avg_train_loss"
@@ -798,9 +844,12 @@ function train_model(model, ps, st, train_loader, val_loader, num_epochs, dev)
 		@info "avg_dice: $avg_dice"
 		@info "avg_hausdorff: $avg_hausdorff"
 
-        # Calculate and log time taken for the epoch
-        epoch_duration = now() - epoch_start_time
-
+		# Save new model if dice or hausdorff metrics improve
+		if epoch > 1 && (avg_dice > metrics_df[end, :Dice_Metric] || avg_hausdorff < metrics_df[end, :Hausdorff_Metric])
+			jldsave("model_params_epoch_$epoch.jld2"; ps)
+			jldsave("model_states_epoch_$epoch.jld2"; st)
+		end
+		
         # Append metrics to the DataFrame
 		push!(metrics_df, [epoch, avg_train_loss, avg_val_loss, avg_dice, avg_hausdorff, string(epoch_duration)])
 
@@ -860,14 +909,78 @@ end
 
 # ╔═╡ ca57dee1-2669-4202-801d-c88b4d3d7c8d
 md"""
-# Save Model
+## Save Final Model
 """
 
 # ╔═╡ 7b9b554e-2999-4c57-805e-7bc0d7a0b4e7
-jldsave("model_params.jld2"; ps_final)
+jldsave("model_params_final.jld2"; ps_final)
 
 # ╔═╡ 6432d227-3ff6-4230-9f52-c3e57ba78618
-jldsave("model_states.jld2"; st_final)
+jldsave("model_states_final.jld2"; st_final)
+
+# ╔═╡ 33b4df0d-86e0-4728-a3bc-928c4dff1400
+md"""
+# Model Inference
+"""
+
+# ╔═╡ edddcb37-ac27-4c6a-a98e-c34525cce108
+md"""
+## Load Test Images
+"""
+
+# ╔═╡ 7c821e74-cab5-4e5b-92bc-0e8f76d36556
+test_data = HeartSegmentationDataset(data_dir; is_test = true)
+
+# ╔═╡ 6dafe561-411a-45b9-b0ee-d385136e1568
+function preprocess_test_data(image, target_size)
+    resized_image = resize_image(image, target_size)
+    processed_image = Float32.(reshape(resized_image, size(resized_image)..., 1))
+    return processed_image
+end
+
+# ╔═╡ fe2cfe67-9d87-4eb7-a3d6-13402afbb99a
+transformed_test_data = mapobs(
+    x -> preprocess_test_data(x, target_size),
+    test_data
+)
+
+# ╔═╡ bf325c7f-d43a-4a02-b339-2a84eac1c4ff
+test_loader = DataLoader(transformed_test_data; batchsize = 10, collate = true)
+
+# ╔═╡ b206b46a-4261-4727-a4d6-23a305382374
+md"""
+## Load Best Model
+"""
+
+# ╔═╡ 27360e10-ad7e-4fdc-95c5-fef0c5b550dd
+md"""
+## Predict
+"""
+
+# ╔═╡ 3545de13-f283-4431-81e7-3abfa14774de
+md"""
+## Visualize
+"""
+
+# ╔═╡ 13303866-8a40-4325-9334-6de60a2068cd
+image_test = getobs(transformed_test_data, 1);
+
+# ╔═╡ 1adace71-2b22-461e-86c5-fe42f7b69958
+typeof(image_test)
+
+# ╔═╡ 24fa3061-6d6b-4efe-a537-6cd6eaa9b045
+@bind z3 Slider(axes(image_test, 3), show_value = true, default = div(size(image_test, 3), 2))
+
+# ╔═╡ 2c63c5ff-f364-4f78-bd3c-ac89f32d7b0f
+let
+	f = Figure(size = (700, 500))
+	ax = Axis(
+		f[1, 1],
+		title = "Test Image"
+	)
+	heatmap!(image_test[:, :, z3, 1]; colormap = :grays)
+	f
+end
 
 # ╔═╡ Cell order:
 # ╠═d4f7e164-f9a6-47ee-85a7-dd4e0dec10ee
@@ -895,6 +1008,7 @@ jldsave("model_states.jld2"; st_final)
 # ╠═6b8e2236-cd17-452f-8e68-93c9418027cd
 # ╠═0a03b692-045f-4321-8065-ebca13e94a96
 # ╠═74e84051-b49e-435a-b448-62aa2aa5911c
+# ╠═e91fa0c9-cde9-4416-9e6a-3faa4f8af717
 # ╠═317c1571-d232-4cab-ac10-9fc3b7ad33b0
 # ╠═217d073d-c145-4b3d-85c4-eee8d22d1018
 # ╠═f2b8a5ae-1c5c-47ba-8215-8ef7c5619d68
@@ -929,6 +1043,7 @@ jldsave("model_states.jld2"; st_final)
 # ╠═c283f9a3-6a76-4186-859f-21cd9efc131f
 # ╠═70bc36db-9ee3-4e1d-992d-abbf55c52070
 # ╠═2f6f0755-d71f-4239-a72b-88a545ba8ca1
+# ╠═b04c696b-b404-4976-bfc1-51889ef1d60f
 # ╠═e457a411-2e7b-43b3-a247-23eff94222b0
 # ╠═1b5ae165-1069-4638-829a-471b907cce86
 # ╠═69880e6d-162a-4aae-94eb-103bd35ac3c9
@@ -953,6 +1068,18 @@ jldsave("model_states.jld2"; st_final)
 # ╠═0bf3a26a-9e18-43d0-b059-d37e8f2e3645
 # ╟─bc72bff8-a4a8-4736-9aa2-0e87eed243ba
 # ╟─ca57dee1-2669-4202-801d-c88b4d3d7c8d
-# ╠═b04c696b-b404-4976-bfc1-51889ef1d60f
 # ╠═7b9b554e-2999-4c57-805e-7bc0d7a0b4e7
 # ╠═6432d227-3ff6-4230-9f52-c3e57ba78618
+# ╟─33b4df0d-86e0-4728-a3bc-928c4dff1400
+# ╟─edddcb37-ac27-4c6a-a98e-c34525cce108
+# ╠═7c821e74-cab5-4e5b-92bc-0e8f76d36556
+# ╠═6dafe561-411a-45b9-b0ee-d385136e1568
+# ╠═fe2cfe67-9d87-4eb7-a3d6-13402afbb99a
+# ╠═bf325c7f-d43a-4a02-b339-2a84eac1c4ff
+# ╟─b206b46a-4261-4727-a4d6-23a305382374
+# ╟─27360e10-ad7e-4fdc-95c5-fef0c5b550dd
+# ╟─3545de13-f283-4431-81e7-3abfa14774de
+# ╠═13303866-8a40-4325-9334-6de60a2068cd
+# ╠═1adace71-2b22-461e-86c5-fe42f7b69958
+# ╟─24fa3061-6d6b-4efe-a537-6cd6eaa9b045
+# ╟─2c63c5ff-f364-4f78-bd3c-ac89f32d7b0f
