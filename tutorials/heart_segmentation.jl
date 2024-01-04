@@ -73,6 +73,10 @@ using Dates: now
 # ╔═╡ e457a411-2e7b-43b3-a247-23eff94222b0
 using DataFrames: DataFrame
 
+# ╔═╡ ec8d4131-d8c0-4bdc-9479-d96dc712567c
+# ╠═╡ show_logs = false
+using ParameterSchedulers: Exp
+
 # ╔═╡ b04c696b-b404-4976-bfc1-51889ef1d60f
 using JLD2: jldsave
 
@@ -597,11 +601,37 @@ md"""
 ## Optimiser
 """
 
-# ╔═╡ 10007ee0-5339-4544-bbcd-ac4eed043f50
+# ╔═╡ ca87af51-1e56-48f7-8343-1b4e8fe1c91a
+begin
+    struct Scheduler{T, F}<: Optimisers.AbstractRule
+        constructor::F
+        schedule::T
+    end
+
+    _get_opt(scheduler::Scheduler, t) = scheduler.constructor(scheduler.schedule(t))
+
+    Optimisers.init(o::Scheduler, x::AbstractArray) =
+        (t = 1, opt = Optimisers.init(_get_opt(o, 1), x))
+
+    function Optimisers.apply!(o::Scheduler, state, x, dx)
+        opt = _get_opt(o, state.t)
+        new_state, new_dx = Optimisers.apply!(opt, state.opt, x, dx)
+
+        return (t = state.t + 1, opt = new_state), new_dx
+    end
+end
+
+# ╔═╡ 0390bcf5-4cd6-49ba-860a-6f94f8ba6ded
 function create_optimiser(ps)
-    opt = Optimisers.ADAM(0.01f0)
+    opt = Scheduler(Exp(λ = 1e-2, γ = 0.8)) do lr Optimisers.Adam(0.0001f0) end
     return Optimisers.setup(opt, ps)
 end
+
+# ╔═╡ 10007ee0-5339-4544-bbcd-ac4eed043f50
+# function create_optimiser(ps)
+#     opt = Optimisers.ADAM(0.01f0)
+#     return Optimisers.setup(opt, ps)
+# end
 
 # ╔═╡ a25bdfe6-b24d-446b-926f-6e0727d647a2
 md"""
@@ -785,9 +815,9 @@ end
 
 # ╔═╡ a2e88851-227a-4719-8828-6064f9d3ef81
 if LuxCUDA.functional()
-	num_epochs = 10
+	num_epochs = 20
 else
-	num_epochs = 2
+	num_epochs = 10
 end
 
 # ╔═╡ 5cae73af-471c-4068-b9ff-5bc03dd0472d
@@ -903,7 +933,10 @@ jldsave("model_states.jld2"; st_final)
 # ╠═1b5ae165-1069-4638-829a-471b907cce86
 # ╠═69880e6d-162a-4aae-94eb-103bd35ac3c9
 # ╠═12d42392-ad7b-4c5f-baf5-1f2c6052669e
+# ╠═ec8d4131-d8c0-4bdc-9479-d96dc712567c
 # ╟─7cde37c8-4c59-4583-8995-2b01eda95cb3
+# ╠═ca87af51-1e56-48f7-8343-1b4e8fe1c91a
+# ╠═0390bcf5-4cd6-49ba-860a-6f94f8ba6ded
 # ╠═10007ee0-5339-4544-bbcd-ac4eed043f50
 # ╟─a25bdfe6-b24d-446b-926f-6e0727d647a2
 # ╠═8598dfca-8929-4ec3-9eb5-09c240c3fdba
