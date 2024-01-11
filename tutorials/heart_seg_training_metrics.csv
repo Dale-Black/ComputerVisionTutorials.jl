@@ -1,0 +1,4 @@
+Epoch,Train_Loss,Validation_Loss,Dice_Metric,Hausdorff_Metric,Epoch_Duration
+1,0.9938120906526041,0.9989035126313124,NaN,0.0,52630 milliseconds
+2,0.9992795391124191,0.9999485500046612,NaN,0.0,542492 milliseconds
+3,0.9999775413064557,0.9999999209362458,NaN,0.0,69225 milliseconds

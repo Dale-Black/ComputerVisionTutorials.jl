@@ -800,10 +800,7 @@ else
 end
 
 # ╔═╡ 5cae73af-471c-4068-b9ff-5bc03dd0472d
-# ╠═╡ disabled = true
-#=╠═╡
 ps_final, st_final = train_model(model, ps, st, train_loader, val_loader, num_epochs, dev);
-  ╠═╡ =#
 
 # ╔═╡ 0dee7c0e-c239-49a4-93c9-5a856b3da883
 md"""
@@ -846,10 +843,14 @@ md"""
 """
 
 # ╔═╡ 7b9b554e-2999-4c57-805e-7bc0d7a0b4e7
+#=╠═╡
 jldsave("model_params_final.jld2"; ps_final)
+  ╠═╡ =#
 
 # ╔═╡ 6432d227-3ff6-4230-9f52-c3e57ba78618
+#=╠═╡
 jldsave("model_states_final.jld2"; st_final)
+  ╠═╡ =#
 
 # ╔═╡ 33b4df0d-86e0-4728-a3bc-928c4dff1400
 md"""

@@ -8,24 +8,24 @@
         "title": "Home"
       },
       {
+        "type": "notebook",
+        "path": "data_preparation.jl",
+        "title": "Data Preparation"
+      },
+      {
+        "type": "notebook",
+        "path": "models.jl",
+        "title": "Models"
+      },
+      {
         "type": "folder",
         "title": "Tutorials",
         "defaultOpened": false,
         "elements": [
           {
             "type": "notebook",
-            "path": "tutorials/data_preparation.jl",
-            "title": "Data Preparation"
-          },
-          {
-            "type": "notebook",
             "path": "tutorials/heart_segmentation.jl",
             "title": "Heart Segmentation"
-          },
-          {
-            "type": "notebook",
-            "path": "tutorials/models.jl",
-            "title": "Models"
           }
         ]
       },
