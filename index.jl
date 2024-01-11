@@ -95,14 +95,14 @@ end
 
 # ╔═╡ c849343a-dbf9-44ed-954c-35ba82918b96
 article_list_components = Article[
-	Article("Data Preparation", "tutorials/01_data_preparation.jl", "https://img.freepik.com/premium-photo/stickers-basic-gift-box-open-with-simple-geometric-creative-concept-boxes-gift-design_655090-499328.jpg?ga=GA1.1.1694943658.1700350224&semt=ais_ai_generated"),
-	Article("Models", "tutorials/02_models.jl", "https://img.freepik.com/premium-photo/pile-lego-bricks-with-word-lego-it_822916-171.jpg?ga=GA1.1.1694943658.1700350224&semt=ais_ai_generated"),
-	Article("Optimisers and Loss Functions", "tutorials/03_optim_loss.jl", "https://img.freepik.com/free-photo/glowing-sine-waves-create-futuristic-backdrop-design-generated-by-ai_188544-36480.jpg?t=st=1704917724~exp=1704921324~hmac=099b8d531988fe63ccf835b69b70af25479fe869b63fbb659cdbae94f52e8620&w=1800"),
+	Article("Data Preparation", "components/01_data_preparation.jl", "https://img.freepik.com/premium-photo/stickers-basic-gift-box-open-with-simple-geometric-creative-concept-boxes-gift-design_655090-499328.jpg?ga=GA1.1.1694943658.1700350224&semt=ais_ai_generated"),
+	Article("Model Building", "components/02_model_building.jl", "https://img.freepik.com/premium-photo/pile-lego-bricks-with-word-lego-it_822916-171.jpg?ga=GA1.1.1694943658.1700350224&semt=ais_ai_generated"),
+	Article("Optimisers and Loss Functions", "components/03_optim_loss.jl", "https://img.freepik.com/free-photo/glowing-sine-waves-create-futuristic-backdrop-design-generated-by-ai_188544-36480.jpg?t=st=1704917724~exp=1704921324~hmac=099b8d531988fe63ccf835b69b70af25479fe869b63fbb659cdbae94f52e8620&w=1800"),
 ];
 
 # ╔═╡ 421ca566-9e2f-4343-b4f1-b6a8bb6482dc
 article_list_tutorials = Article[
-	Article("Heart Segmentation", "tutorials/heart_segmentation.jl", "https://img.freepik.com/free-photo/realistic-heart-shape-studio_23-2150827358.jpg?ga=GA1.1.1694943658.1700350224&semt=ais_ai_generated"),
+	Article("3D Segmentation", "tutorials/3D_segmentation.jl", "https://img.freepik.com/free-photo/realistic-heart-shape-studio_23-2150827358.jpg?ga=GA1.1.1694943658.1700350224&semt=ais_ai_generated"),
 ];
 
 # ╔═╡ 49dd6dbd-04dd-4c67-86ec-1111f7ab6ebb

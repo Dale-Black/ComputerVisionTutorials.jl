@@ -3,19 +3,26 @@
     "title": "ComputerVisionTutorials.jl",
     "elements": [
       {
-        "type": "notebook",
-        "path": "index.jl",
-        "title": "Home"
-      },
-      {
-        "type": "notebook",
-        "path": "data_preparation.jl",
-        "title": "Data Preparation"
-      },
-      {
-        "type": "notebook",
-        "path": "models.jl",
-        "title": "Models"
+        "type": "folder",
+        "title": "Components",
+        "defaultOpened": false,
+        "elements": [
+          {
+            "type": "notebook",
+            "path": "components/01_data_preparation.jl",
+            "title": "Data Preparation"
+          },
+          {
+            "type": "notebook",
+            "path": "components/02_model_building.jl",
+            "title": "Model Building"
+          },
+          {
+            "type": "notebook",
+            "path": "components/03_optim_loss.jl",
+            "title": "Optimisers/Loss Functions"
+          }
+        ]
       },
       {
         "type": "folder",

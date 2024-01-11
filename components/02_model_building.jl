@@ -10,7 +10,7 @@ using InteractiveUtils
 
 # ╔═╡ 403888e0-01ef-4f4c-9bd5-406642bee99a
 # ╠═╡ show_logs = false
-using Pkg; Pkg.activate("."); Pkg.instantiate()
+using Pkg; Pkg.activate(".."); Pkg.instantiate()
 
 # ╔═╡ ffd31741-1b93-42a0-9df5-90cfc571b890
 using PlutoUI: TableOfContents
