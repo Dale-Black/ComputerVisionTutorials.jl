@@ -31,4 +31,5 @@ We welcome contributions of all forms to help expand and improve this package. W
 
 ## Getting Started
 [![Glass Notebook](https://img.shields.io/badge/Docs-Glass%20Notebook-aquamarine.svg)](https://glassnotebook.io/r/DxnIPJnIqpEqiQnJgqiBP/index.jl)
-To begin exploring computer vision with Julia, navigate to the tutorials/ directory, where you'll find Pluto notebooks that will guide you through various concepts and applications.
+
+To begin exploring computer vision with Julia check out the links above. You can also clone this repo and navigate to the tutorials/ directory, where you'll find Pluto notebooks that will guide you through various concepts and applications.
