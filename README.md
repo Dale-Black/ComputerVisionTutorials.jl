@@ -1,6 +1,9 @@
 # ComputerVisionTutorials.jl
 [![Glass Notebook](https://img.shields.io/badge/Docs-Glass%20Notebook-aquamarine.svg)](https://glassnotebook.io/r/DxnIPJnIqpEqiQnJgqiBP/index.jl)
 
+![ComputerVisionTutorials.jl Screenshot](/assets/screenshot.jpeg)
+
+
 ## Introduction
 ComputerVisionTutorials.jl is a Julia package focused on deep learning for computer vision. This package is designed to provide a hands-on approach to learning state-of-the-art vision models and techniques through interactive Pluto notebooks. This package takes full advantage of the Glass Notebook system to provide meta-documentation. This means that each tutorial is not only a standalone guide but also part of a larger, interconnected web of resources. This allows for a more holistic and interconnected learning experience.
 
