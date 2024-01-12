@@ -2,7 +2,7 @@
 # v0.19.36
 
 #> [frontmatter]
-#> title = "Heart Segmentation"
+#> title = "Image Segmentation"
 #> description = "Guide on 3D heart segmentation in CT images."
 
 using Markdown
