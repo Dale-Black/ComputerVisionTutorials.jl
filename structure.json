@@ -19,8 +19,8 @@
           },
           {
             "type": "notebook",
-            "path": "components/03_optim_loss.jl",
-            "title": "Optimisers/Loss Functions"
+            "path": "components/03_training_validation.jl",
+            "title": "Training and Validation"
           }
         ]
       },
@@ -31,7 +31,7 @@
         "elements": [
           {
             "type": "notebook",
-            "path": "tutorials/heart_segmentation.jl",
+            "path": "tutorials/03_image_segmentation.jl",
             "title": "Heart Segmentation"
           }
         ]
