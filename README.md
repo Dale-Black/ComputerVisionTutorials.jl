@@ -58,4 +58,4 @@ Notebooks providing end-to-end tutorials on common computer vision tasks.
   - Using FluxMPI.jl (or Dagger.jl?) for training a segmentation model accross multiple GPUs.
 
 ## Contribution
-We welcome contributions! Feel free to help complete the in-progress notebooks, or suggest and develop new ones. Pull requests and issues welcome!
+We're open to contributions! Feel free to start the coming-soon notebooks, help out with the notebooks that are still in progress, or suggest and create new ones. We accept both pull requests and issues. Our core packages, like Losers.jl and ComputerVisionMetrics.jl, could also use many updates and additions. If you've got a Julia package that's useful for deep learning in computer vision, consider using [Glass Notebook](https://glassnotebook.io/) for your packages documentation and we'd be happy to integrate it directly into ComputerVisionTutorials.jl!
