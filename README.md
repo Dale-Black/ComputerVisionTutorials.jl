@@ -58,4 +58,4 @@ Notebooks providing end-to-end tutorials on common computer vision tasks.
   - Using FluxMPI.jl (or Dagger.jl?) for training a segmentation model accross multiple GPUs.
 
 ## Contribution
-We welcome contributions! Feel free to help in completing the in-progress notebooks, or suggest and develop new ones. Pull requests and issues welcome!
+We welcome contributions! Feel free to help complete the in-progress notebooks, or suggest and develop new ones. Pull requests and issues welcome!
