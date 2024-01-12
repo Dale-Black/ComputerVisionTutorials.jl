@@ -1,6 +1,10 @@
 ### A Pluto.jl notebook ###
 # v0.19.36
 
+#> [frontmatter]
+#> title = "Training and Validation"
+#> description = "Overview of optimization algorithms, regularization techniques, and validation strategies. Detailed look into different loss functions and their applications."
+
 using Markdown
 using InteractiveUtils
 

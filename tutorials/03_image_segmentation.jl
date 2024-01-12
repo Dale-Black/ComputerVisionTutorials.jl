@@ -3,6 +3,7 @@
 
 #> [frontmatter]
 #> title = "Heart Segmentation"
+#> description = "Guide on 3D heart segmentation in CT images."
 
 using Markdown
 using InteractiveUtils

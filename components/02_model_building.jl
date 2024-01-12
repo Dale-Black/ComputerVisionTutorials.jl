@@ -3,7 +3,7 @@
 
 #> [frontmatter]
 #> title = "Models"
-#> description = "Common deep learning models for computer vision"
+#> description = "Exploration of layer architecture and activation functions."
 
 using Markdown
 using InteractiveUtils

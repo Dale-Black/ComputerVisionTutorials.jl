@@ -3,7 +3,7 @@
 
 #> [frontmatter]
 #> title = "Data Preparation"
-#> description = "Dataset creation, preprocessing, augmentation, data loaders, & more..."
+#> description = "Techniques for data loading, augmentation, and dataset splitting."
 
 using Markdown
 using InteractiveUtils
