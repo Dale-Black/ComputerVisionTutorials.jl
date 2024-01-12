@@ -25,12 +25,12 @@ This repository pulls together packages in the Julia ecosystem focused on variou
 
 # ╔═╡ 02a475d1-9208-4fb4-b321-bce622e8448d
 md"""
-## Comprehensive Tutorials
+## Tutorials
 """
 
 # ╔═╡ 43f3c01f-6e32-4144-a122-488129d4374b
 md"""
-## Training Components
+## Components
 """
 
 # ╔═╡ f5ca1509-dbf2-40ed-87f6-9ca9ed2e5aba
@@ -45,7 +45,7 @@ md"""
 
 # ╔═╡ 63f41d0a-9f2d-402f-8ecb-0960f14c9622
 md"""
-## Other packages
+## Other useful packages
 """
 
 # ╔═╡ dcf15c2f-7356-4e43-8a16-339151ae833b
