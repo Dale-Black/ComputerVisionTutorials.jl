@@ -25,7 +25,7 @@ Notebooks focusing on core components of a deep learning pipeline.
 - **Model Building** (`components/02_model_building.jl`)
   - Exploration of layer architecture and activation functions.
 - **Training and Validation** (`components/03_training_validation.jl`)
-  - Overview of optimization algorithms, regularization techniques, and validation strategies. Detailed look into different loss functions and their applications.
+  - Overview of optimization algorithms, regularization techniques, and validation strategies. Detailed look into different loss functions and their applications. Includes a section on model checkpointing, discussing strategies for saving and reloading model states during training.
 - **Model Evaluation** (`components/04_model_evaluation.jl`)
   - Discussion on performance metrics like accuracy, precision, recall, F1-score, ROC-AUC. Methods for interpreting confusion matrices and conducting error analysis.
 - **Model Deployment and Inference** (`components/05_model_deployment_inference.jl`)
