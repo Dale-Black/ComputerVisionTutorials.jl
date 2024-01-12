@@ -21,35 +21,35 @@ The following Git submodules are integrated into this package, each offering uni
 Notebooks focusing on core components of a deep learning pipeline.
 
 - **Data Preparation** (`components/01_data_preparation.jl`)
-  - Content: Techniques for data loading, augmentation, and dataset splitting.
+  - Techniques for data loading, augmentation, and dataset splitting.
 - **Model Building** (`components/02_model_building.jl`)
-  - Content: Exploration of layer architecture and activation functions.
+  - Exploration of layer architecture and activation functions.
 - **Training and Validation** (`components/03_training_validation.jl`)
-  - Content: Overview of optimization algorithms, regularization techniques, and validation strategies. Detailed look into different loss functions and their applications.
+  - Overview of optimization algorithms, regularization techniques, and validation strategies. Detailed look into different loss functions and their applications.
 - **Model Evaluation** (`components/04_model_evaluation.jl`)
-  - Content: Discussion on performance metrics like accuracy, precision, recall, F1-score, ROC-AUC. Methods for interpreting confusion matrices and conducting error analysis.
+  - Discussion on performance metrics like accuracy, precision, recall, F1-score, ROC-AUC. Methods for interpreting confusion matrices and conducting error analysis.
 - **Model Deployment and Inference** (`components/05_model_deployment_inference.jl`)
-  - Content: Guides on exporting models, integrating with applications, and efficient model inference techniques.
+  - Guides on exporting models, integrating with applications, and efficient model inference techniques.
 
 ### Comprehensive Tutorials
 Notebooks providing end-to-end tutorials on common computer vision tasks.
 
 - **Image Classification** (`tutorials/01_image_classification.jl`)
-  - Content: Building a classifier, improving accuracy, and reducing overfitting.
+  - Building a classifier, improving accuracy, and reducing overfitting.
 - **Object Detection** (`tutorials/02_object_detection.jl`)
-  - Content: Implementing models like YOLO, practical tips for bounding box annotations.
+  - Implementing models like YOLO, practical tips for bounding box annotations.
 - **Image Segmentation** (`tutorials/03_image_segmentation.jl`)
-  - Content: Guide on 3D heart segmentation in CT images.
+  - Guide on 3D heart segmentation in CT images.
 - **Generative Models** (`tutorials/04_generative_models.jl`)
-  - Content: Introduction to GANs and applications in image generation.
+  - Introduction to GANs and applications in image generation.
 - **Pose Estimation** (`tutorials/05_pose_estimation.jl`)
-  - Content: Building a pose estimation model, applications in sports analytics or motion capture.
+  - Building a pose estimation model, applications in sports analytics or motion capture.
 - **Facial Recognition** (`tutorials/06_facial_recognition.jl`)
-  - Content: Implementing a facial recognition system, discussion on privacy and ethical considerations.
+  - Implementing a facial recognition system, discussion on privacy and ethical considerations.
 - **Finetuning** (`tutorials/07_finetuning.jl`)
-  - Content: Loading a pretrained model from Metalhead.jl/Boltz.jl and finetuning for a specific application.
+  - Loading a pretrained model from Metalhead.jl/Boltz.jl and finetuning for a specific application.
 - **Distributed Segmentation** (`tutorials/08_distributed_segmentation.jl`)
-  - Content: Using FluxMPI.jl (or Dagger.jl?) for training a segmentation model accross multiple GPUs.
+  - Using FluxMPI.jl (or Dagger.jl?) for training a segmentation model accross multiple GPUs.
 
 ## Contribution
 We welcome contributions! Feel free to help in completing the in-progress notebooks, or suggest and develop new ones. Pull requests and issues welcome!
