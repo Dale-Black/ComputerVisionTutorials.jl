@@ -9,6 +9,18 @@
       },
       {
         "type": "folder",
+        "title": "Tutorials",
+        "defaultOpened": false,
+        "elements": [
+          {
+            "type": "notebook",
+            "path": "tutorials/03_image_segmentation.jl",
+            "title": "Image Segmentation"
+          }
+        ]
+      },
+      {
+        "type": "folder",
         "title": "Components",
         "defaultOpened": false,
         "elements": [
@@ -31,30 +43,25 @@
       },
       {
         "type": "folder",
-        "title": "Tutorials",
+        "title": "Core Packages",
         "defaultOpened": false,
         "elements": [
           {
-            "type": "notebook",
-            "path": "tutorials/03_image_segmentation.jl",
-            "title": "Image Segmentation"
+            "type": "folder",
+            "title": "Losers.jl",
+            "path": "Losers.jl"
+          },
+          {
+            "type": "folder",
+            "title": "DistanceTransforms.jl",
+            "path": "DistanceTransforms.jl"
+          },
+          {
+            "type": "folder",
+            "title": "ComputerVisionMetrics.jl",
+            "path": "ComputerVisionMetrics.jl"
           }
         ]
-      },
-      {
-        "type": "folder",
-        "title": "Losers.jl",
-        "path": "Losers.jl"
-      },
-      {
-        "type": "folder",
-        "title": "DistanceTransforms.jl",
-        "path": "DistanceTransforms.jl"
-      },
-      {
-        "type": "folder",
-        "title": "ComputerVisionMetrics.jl",
-        "path": "ComputerVisionMetrics.jl"
       }
     ]
   }
