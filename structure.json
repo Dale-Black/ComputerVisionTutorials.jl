@@ -3,6 +3,11 @@
     "title": "ComputerVisionTutorials.jl",
     "elements": [
       {
+        "type": "notebook",
+        "path": "index.jl",
+        "title": "Home"
+      },
+      {
         "type": "folder",
         "title": "Components",
         "defaultOpened": false,
