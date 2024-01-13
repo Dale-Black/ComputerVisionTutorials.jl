@@ -32,7 +32,7 @@
           {
             "type": "notebook",
             "path": "tutorials/03_image_segmentation.jl",
-            "title": "Heart Segmentation"
+            "title": "Image Segmentation"
           }
         ]
       },
