@@ -1,5 +1,5 @@
 # ComputerVisionTutorials.jl
-[![Glass Notebook](https://img.shields.io/badge/Docs-Glass%20Notebook-aquamarine.svg)](https://glassnotebook.io/r/DxnIPJnIqpEqiQnJgqiBP/index.jl)
+[![Glass Notebook](https://img.shields.io/badge/Docs-Glass%20Notebook-aquamarine.svg)](https://glassnotebook.io/r/MV9-MN1CsTFTXWUfpAwRT/index.jl)
 
 ![ComputerVisionTutorials.jl Screenshot](/assets/screenshot.jpeg)
 
@@ -9,7 +9,7 @@ ComputerVisionTutorials.jl is a Julia package focused on deep learning for compu
 *Note: This package integrates several Git submodules like Losers.jl, DistanceTransforms.jl, and ComputerVisionMetrics.jl, all documented within the Glass Notebook system, ensuring seamless integration into the larger documentation framework.*
 
 ## Getting Started
-To begin exploring deep learning for computer vision with Julia, [click this link](https://glassnotebook.io/r/DxnIPJnIqpEqiQnJgqiBP/index.jl). You can also clone this repo and navigate to the `tutorials/` directory, where you'll find Pluto notebooks that will guide you through various concepts and applications.
+To begin exploring deep learning for computer vision with Julia, [click this link](https://glassnotebook.io/r/MV9-MN1CsTFTXWUfpAwRT/index.jl). You can also clone this repo and navigate to the `tutorials/` directory, where you'll find Pluto notebooks that will guide you through various concepts and applications.
 
 ## Repository Structure
 - ✅ (Complete)
