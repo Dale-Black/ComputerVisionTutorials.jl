@@ -706,16 +706,16 @@ let
 end
 
 # ╔═╡ b8088188-761b-4407-adfa-0356bfdfdd6e
-xval, yval = getobs(transformed_data, 1:2)
+begin
+	xvals, yvals = getobs(transformed_data, 1:2)
+	xvals, yvals = cat(xvals[1], xvals[2], dims = 5), cat(yvals[1], yvals[2], dims = 5)
+end;
 
 # ╔═╡ 39827c24-e4e6-4a96-abcb-3329750b6bf7
-xvals, yvals = cat(xval[1], xval[2], dims = 5), cat(yval[1], yval[2], dims = 5)
-
-# ╔═╡ afc8aa4e-c216-407e-aba7-999fd258be3a
-ps_eval = load("params_img_seg_final.jld2", "ps_final")
-
-# ╔═╡ f3b87385-a645-4688-bc76-59cb987e4056
-st_eval = load("states_img_seg_final.jld2", "st_final")
+begin
+	ps_eval = load("params_img_seg_final.jld2", "ps_final")
+	st_eval = load("states_img_seg_final.jld2", "st_final")
+end;
 
 # ╔═╡ 1f3749a8-6613-458c-b8fc-f62cecfc150e
 begin
@@ -788,19 +788,32 @@ md"""
 ## Predict
 """
 
+# ╔═╡ 13303866-8a40-4325-9334-6de60a2068cd
+begin
+	image_test1, image_test2 = getobs(transformed_test_data, 1), getobs(transformed_test_data, 2)
+	image_test = cat(image_test1, image_test2, dims = 5)
+end;
+
+# ╔═╡ 86af32ff-5ffe-4ae4-89ca-89e1165d752c
+begin
+	y_test, _ = Lux.apply(model, image_test, ps_eval, Lux.testmode(st_eval))
+	y_test = round.(sigmoid.(y_test))
+end;
+
+# ╔═╡ 1adace71-2b22-461e-86c5-fe42f7b69958
+typeof(image_test)
+
 # ╔═╡ 3545de13-f283-4431-81e7-3abfa14774de
 md"""
 ## Visualize
 """
 
-# ╔═╡ 13303866-8a40-4325-9334-6de60a2068cd
-image_test = getobs(transformed_test_data, 1);
+# ╔═╡ 648e8a2e-0fea-4ee3-8902-eabb79d70d85
+md"""
+Batch: $(@bind b_test Slider(axes(image_test, 5); show_value = true))
 
-# ╔═╡ 1adace71-2b22-461e-86c5-fe42f7b69958
-typeof(image_test)
-
-# ╔═╡ 24fa3061-6d6b-4efe-a537-6cd6eaa9b045
-@bind z3 Slider(axes(image_test, 3), show_value = true, default = div(size(image_test, 3), 2))
+Z Slice: $(@bind z_test Slider(axes(image_test, 3); show_value = true, default = div(size(image_test, 3), 2)))
+"""
 
 # ╔═╡ 2c63c5ff-f364-4f78-bd3c-ac89f32d7b0f
 let
@@ -809,7 +822,14 @@ let
 		f[1, 1],
 		title = "Test Image"
 	)
-	heatmap!(image_test[:, :, z3, 1]; colormap = :grays)
+	heatmap!(image_test[:, :, z_test, 1, b_test]; colormap = :grays)
+
+	ax = Axis(
+		f[1, 2],
+		title = "Segmentation"
+	)
+	heatmap!(image_test[:, :, z_test, 1, b_test]; colormap = :grays)
+	heatmap!(y_test[:, :, z_test, 2, b_test]; colormap = (:jet, 0.5))
 	f
 end
 
@@ -900,8 +920,6 @@ end
 # ╟─bc72bff8-a4a8-4736-9aa2-0e87eed243ba
 # ╠═b8088188-761b-4407-adfa-0356bfdfdd6e
 # ╠═39827c24-e4e6-4a96-abcb-3329750b6bf7
-# ╠═afc8aa4e-c216-407e-aba7-999fd258be3a
-# ╠═f3b87385-a645-4688-bc76-59cb987e4056
 # ╠═1f3749a8-6613-458c-b8fc-f62cecfc150e
 # ╟─c93583ba-9f12-4ea3-9ce5-869443a43c93
 # ╟─9f6f7552-eeb1-4abd-946c-0b2c57ba7ddf
@@ -913,8 +931,9 @@ end
 # ╠═bf325c7f-d43a-4a02-b339-2a84eac1c4ff
 # ╟─b206b46a-4261-4727-a4d6-23a305382374
 # ╟─27360e10-ad7e-4fdc-95c5-fef0c5b550dd
-# ╟─3545de13-f283-4431-81e7-3abfa14774de
 # ╠═13303866-8a40-4325-9334-6de60a2068cd
+# ╠═86af32ff-5ffe-4ae4-89ca-89e1165d752c
 # ╠═1adace71-2b22-461e-86c5-fe42f7b69958
-# ╟─24fa3061-6d6b-4efe-a537-6cd6eaa9b045
+# ╟─3545de13-f283-4431-81e7-3abfa14774de
+# ╟─648e8a2e-0fea-4ee3-8902-eabb79d70d85
 # ╟─2c63c5ff-f364-4f78-bd3c-ac89f32d7b0f
