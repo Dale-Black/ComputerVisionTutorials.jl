@@ -74,15 +74,15 @@ using Dates: now
 # ╔═╡ b04c696b-b404-4976-bfc1-51889ef1d60f
 using JLD2: jldsave
 
+# ╔═╡ 00ea61c1-7d20-4c98-892e-dcdec3b0b43f
+using FileIO: load
+
 # ╔═╡ e457a411-2e7b-43b3-a247-23eff94222b0
 using DataFrames: DataFrame
 
 # ╔═╡ ec8d4131-d8c0-4bdc-9479-d96dc712567c
 # ╠═╡ show_logs = false
 using ParameterSchedulers: Exp
-
-# ╔═╡ 00ea61c1-7d20-4c98-892e-dcdec3b0b43f
-using FileIO: load
 
 # ╔═╡ 1b5ae165-1069-4638-829a-471b907cce86
 import CSV
@@ -647,6 +647,22 @@ else
 	num_epochs = 20
 end
 
+# ╔═╡ 5cae73af-471c-4068-b9ff-5bc03dd0472d
+# ╠═╡ disabled = true
+#=╠═╡
+ps_final, st_final = train_model(model, ps, st, train_loader, val_loader, num_epochs, dev);
+  ╠═╡ =#
+
+# ╔═╡ 7b9b554e-2999-4c57-805e-7bc0d7a0b4e7
+#=╠═╡
+jldsave("params_img_seg_final.jld2"; ps_final)
+  ╠═╡ =#
+
+# ╔═╡ 6432d227-3ff6-4230-9f52-c3e57ba78618
+#=╠═╡
+jldsave("states_img_seg_final.jld2"; st_final)
+  ╠═╡ =#
+
 # ╔═╡ 0dee7c0e-c239-49a4-93c9-5a856b3da883
 md"""
 ## Visualize Training
@@ -695,15 +711,15 @@ xval, yval = getobs(transformed_data, 1:2)
 # ╔═╡ 39827c24-e4e6-4a96-abcb-3329750b6bf7
 xvals, yvals = cat(xval[1], xval[2], dims = 5), cat(yval[1], yval[2], dims = 5)
 
-# ╔═╡ 7b9b554e-2999-4c57-805e-7bc0d7a0b4e7
-jldsave("params_img_seg_final.jld2"; ps_final)
+# ╔═╡ afc8aa4e-c216-407e-aba7-999fd258be3a
+ps_eval = load("params_img_seg_final.jld2", "ps_final")
 
-# ╔═╡ 6432d227-3ff6-4230-9f52-c3e57ba78618
-jldsave("states_img_seg_final.jld2"; st_final)
+# ╔═╡ f3b87385-a645-4688-bc76-59cb987e4056
+st_eval = load("states_img_seg_final.jld2", "st_final")
 
 # ╔═╡ 1f3749a8-6613-458c-b8fc-f62cecfc150e
 begin
-	y_preds, _ = Lux.apply(model, xvals, ps_final, Lux.testmode(st_final))
+	y_preds, _ = Lux.apply(model, xvals, ps_eval, Lux.testmode(st_eval))
 	y_preds = round.(sigmoid.(y_preds))
 end;
 
@@ -797,24 +813,6 @@ let
 	f
 end
 
-# ╔═╡ 31c41017-e399-4eec-8ce2-c45d43ed25c0
-begin
-	st_final = load("states_img_seg_final.jld2", "st_final")
-	st_final = st_final["st_final"]
-end
-
-# ╔═╡ 27b58d15-09ef-4f92-9aea-87300dbf8a8c
-begin
-	ps_final = load("params_img_seg_final.jld2", "ps_final")
-	ps_final = ps_final["ps_final"]
-end
-
-# ╔═╡ 5cae73af-471c-4068-b9ff-5bc03dd0472d
-# ╠═╡ disabled = true
-#=╠═╡
-ps_final, st_final = train_model(model, ps, st, train_loader, val_loader, num_epochs, dev);
-  ╠═╡ =#
-
 # ╔═╡ Cell order:
 # ╟─65dac38d-f955-4058-b577-827d7f8b3db4
 # ╟─7cf78ac3-cedd-479d-bc50-769f7b772060
@@ -902,8 +900,8 @@ ps_final, st_final = train_model(model, ps, st, train_loader, val_loader, num_ep
 # ╟─bc72bff8-a4a8-4736-9aa2-0e87eed243ba
 # ╠═b8088188-761b-4407-adfa-0356bfdfdd6e
 # ╠═39827c24-e4e6-4a96-abcb-3329750b6bf7
-# ╠═27b58d15-09ef-4f92-9aea-87300dbf8a8c
-# ╠═31c41017-e399-4eec-8ce2-c45d43ed25c0
+# ╠═afc8aa4e-c216-407e-aba7-999fd258be3a
+# ╠═f3b87385-a645-4688-bc76-59cb987e4056
 # ╠═1f3749a8-6613-458c-b8fc-f62cecfc150e
 # ╟─c93583ba-9f12-4ea3-9ce5-869443a43c93
 # ╟─9f6f7552-eeb1-4abd-946c-0b2c57ba7ddf
