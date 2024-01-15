@@ -14,7 +14,7 @@
         "elements": [
           {
             "type": "notebook",
-            "path": "tutorials/03_image_segmentation_test.jl",
+            "path": "tutorials/03_image_segmentation.jl",
             "title": "Image Segmentation"
           }
         ]

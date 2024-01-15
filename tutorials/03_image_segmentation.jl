@@ -165,7 +165,7 @@ end
 
 # ╔═╡ 65dac38d-f955-4058-b577-827d7f8b3db4
 md"""
-# Setup
+# Set Up
 """
 
 # ╔═╡ 7cf78ac3-cedd-479d-bc50-769f7b772060
@@ -180,7 +180,7 @@ md"""
 
 # ╔═╡ f0e64ba5-5e11-4ddb-91d3-2a34c60dc6bf
 md"""
-# Data Preparation
+# 1. Data Preparation
 """
 
 # ╔═╡ ec7734c3-33a5-43c7-82db-2db4dbdc9587
@@ -295,12 +295,12 @@ end
 
 # ╔═╡ 2ec43028-c1ab-4df7-9cfe-cc1a4919a7cf
 md"""
-# Data Visualization
+## Visualize
 """
 
 # ╔═╡ a6316144-c809-4d2a-bda1-d5128dcf89d3
 md"""
-## Original Data
+### Original Data
 """
 
 # ╔═╡ f8fc2cee-c1bd-477d-9595-9427e8764bd6
@@ -329,7 +329,7 @@ end
 
 # ╔═╡ 9dc89870-3d99-472e-8974-712e34a3a789
 md"""
-## Transformed Data
+### Transformed Data
 """
 
 # ╔═╡ 0f5d7796-2c3d-4b74-86c1-a1d4e3922011
@@ -364,7 +364,7 @@ end
 
 # ╔═╡ 95ad5275-63ca-4f2a-9f3e-6c6a340f5cd4
 md"""
-# Model
+# 2. Model Building
 """
 
 # ╔═╡ 773aace6-14ad-46f6-a1a6-692247231e90
@@ -452,7 +452,7 @@ model = Unet(1, 2)
 
 # ╔═╡ df2dd9a7-045c-44a5-a62c-8d9f2541dc14
 md"""
-# Training Set Up
+# 3. Training & Validation
 """
 
 # ╔═╡ 1b5ae165-1069-4638-829a-471b907cce86
@@ -522,11 +522,6 @@ function compute_loss(x, y, model, ps, st)
     return loss / size(y, 5), y_pred_sigmoid, st
 end
 
-# ╔═╡ 45949f7f-4e4a-4857-af43-ff013dbdd137
-md"""
-# Training
-"""
-
 # ╔═╡ 402ba194-350e-4ff3-832b-6651be1d9ce7
 dev = gpu_device()
 
@@ -538,7 +533,7 @@ end
 
 # ╔═╡ b7561ff5-d704-4301-b038-c02bbba91ae2
 md"""
-## Train
+## Training Loop
 """
 
 # ╔═╡ 1e79232f-bda2-459a-bc03-85cd8afab3bf
@@ -650,6 +645,16 @@ end
 ps_final, st_final = train_model(model, ps, st, train_loader, val_loader, num_epochs, dev);
   ╠═╡ =#
 
+# ╔═╡ 7b9b554e-2999-4c57-805e-7bc0d7a0b4e7
+#=╠═╡
+jldsave("params_img_seg_final.jld2"; ps_final)
+  ╠═╡ =#
+
+# ╔═╡ 6432d227-3ff6-4230-9f52-c3e57ba78618
+#=╠═╡
+jldsave("states_img_seg_final.jld2"; st_final)
+  ╠═╡ =#
+
 # ╔═╡ 0dee7c0e-c239-49a4-93c9-5a856b3da883
 md"""
 ## Visualize Training
@@ -685,24 +690,9 @@ let
 	f
 end
 
-# ╔═╡ ca57dee1-2669-4202-801d-c88b4d3d7c8d
-md"""
-## Save Final Model
-"""
-
-# ╔═╡ 7b9b554e-2999-4c57-805e-7bc0d7a0b4e7
-#=╠═╡
-jldsave("params_img_seg_final.jld2"; ps_final)
-  ╠═╡ =#
-
-# ╔═╡ 6432d227-3ff6-4230-9f52-c3e57ba78618
-#=╠═╡
-jldsave("states_img_seg_final.jld2"; st_final)
-  ╠═╡ =#
-
 # ╔═╡ 33b4df0d-86e0-4728-a3bc-928c4dff1400
 md"""
-# Model Inference
+# 4. Model Evaluation
 """
 
 # ╔═╡ edddcb37-ac27-4c6a-a98e-c34525cce108
@@ -837,19 +827,17 @@ end
 # ╠═0390bcf5-4cd6-49ba-860a-6f94f8ba6ded
 # ╟─a25bdfe6-b24d-446b-926f-6e0727d647a2
 # ╠═08f2911c-90e7-418e-b9f2-a0722a857bf1
-# ╟─45949f7f-4e4a-4857-af43-ff013dbdd137
 # ╠═402ba194-350e-4ff3-832b-6651be1d9ce7
 # ╠═6ec3e34b-1c57-4cfb-a50d-ee786c2e4559
 # ╟─b7561ff5-d704-4301-b038-c02bbba91ae2
 # ╠═1e79232f-bda2-459a-bc03-85cd8afab3bf
 # ╠═a2e88851-227a-4719-8828-6064f9d3ef81
 # ╠═5cae73af-471c-4068-b9ff-5bc03dd0472d
+# ╠═7b9b554e-2999-4c57-805e-7bc0d7a0b4e7
+# ╠═6432d227-3ff6-4230-9f52-c3e57ba78618
 # ╟─0dee7c0e-c239-49a4-93c9-5a856b3da883
 # ╠═0bf3a26a-9e18-43d0-b059-d37e8f2e3645
 # ╟─bc72bff8-a4a8-4736-9aa2-0e87eed243ba
-# ╟─ca57dee1-2669-4202-801d-c88b4d3d7c8d
-# ╠═7b9b554e-2999-4c57-805e-7bc0d7a0b4e7
-# ╠═6432d227-3ff6-4230-9f52-c3e57ba78618
 # ╟─33b4df0d-86e0-4728-a3bc-928c4dff1400
 # ╟─edddcb37-ac27-4c6a-a98e-c34525cce108
 # ╠═7c821e74-cab5-4e5b-92bc-0e8f76d36556
