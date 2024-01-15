@@ -163,9 +163,19 @@ begin
 	end
 end
 
+# ╔═╡ 65dac38d-f955-4058-b577-827d7f8b3db4
+md"""
+# Setup
+"""
+
+# ╔═╡ 7cf78ac3-cedd-479d-bc50-769f7b772060
+md"""
+## Environment
+"""
+
 # ╔═╡ af798f6b-7549-4253-b02b-2ed20dc1125b
 md"""
-# Randomness
+## Randomness
 """
 
 # ╔═╡ f0e64ba5-5e11-4ddb-91d3-2a34c60dc6bf
@@ -352,251 +362,93 @@ let
 	f
 end
 
-# ╔═╡ 1494df6e-f407-42c4-8404-1f4871a2f817
+# ╔═╡ 95ad5275-63ca-4f2a-9f3e-6c6a340f5cd4
 md"""
 # Model
 """
 
-# ╔═╡ b3fc9578-6b40-4afc-bb58-c772a61a60a5
+# ╔═╡ 773aace6-14ad-46f6-a1a6-692247231e90
 md"""
-## Helper functions
+## Helper Blocks
 """
 
-# ╔═╡ 3e938872-a390-40ba-8b00-b132f988e2d3
-function create_unet_layers(
-    kernel_size, de_kernel_size, channel_list;
-    downsample = true)
-
-    padding = (kernel_size - 1) ÷ 2
-
-	conv1 = Conv((kernel_size, kernel_size, kernel_size), channel_list[1] => channel_list[2], stride=1, pad=padding)
-	conv2 = Conv((kernel_size, kernel_size, kernel_size), channel_list[2] => channel_list[3], stride=1, pad=padding)
-
-    relu1 = relu
-    relu2 = relu
-    bn1 = BatchNorm(channel_list[2])
-    bn2 = BatchNorm(channel_list[3])
-
-	bridge_conv = Conv((kernel_size, kernel_size, kernel_size), channel_list[1] => channel_list[3], stride=1, pad=padding)
-
-    if downsample
-        sample = Chain(
-			Conv((de_kernel_size, de_kernel_size, de_kernel_size), channel_list[3] => channel_list[3], stride=2, pad=(de_kernel_size - 1) ÷ 2, dilation=1),
-            BatchNorm(channel_list[3]),
-            relu
-        )
-    else
-        sample = Chain(
-			ConvTranspose((de_kernel_size, de_kernel_size, de_kernel_size), channel_list[3] => channel_list[3], stride=2, pad=(de_kernel_size - 1) ÷ 2),
-            BatchNorm(channel_list[3]),
-            relu
-        )
-    end
-
-    return (conv1, conv2, relu1, relu2, bn1, bn2, bridge_conv, sample)
-end
-
-# ╔═╡ 1d65b1d1-82de-40ca-aaba-9eee23883cf3
-md"""
-## Contracting Block
-"""
-
-# ╔═╡ 40762509-b26e-47f5-8b49-e7100fdeb72a
-begin
-    struct ContractBlock{
-		C1, C2, F1, F2, BN1, BN2, C3, CH
-	} <: Lux.AbstractExplicitContainerLayer{
-        (:conv1, :conv2, :bn1, :bn2, :bridge_conv, :sample)
-    }
-        conv1::C1
-        conv2::C2
-        relu1::F1
-        relu2::F2
-        bn1::BN1
-        bn2::BN2
-        bridge_conv::C3
-        sample::CH
-    end
-
-    function ContractBlock(
-        kernel_size, de_kernel_size, channel_list;
-        downsample = true
+# ╔═╡ 1588d84a-c5f7-4be6-9295-c3594d77b08f
+function conv_layer(
+	k, in_channels, out_channels;
+	pad=2, stride=1, activation=relu)
+	
+    return Chain(
+        Conv((k, k, k), in_channels => out_channels, pad=pad, stride=stride),
+        BatchNorm(out_channels),
+        WrappedFunction(activation)
     )
-
-		conv1, conv2, relu1, relu2, bn1, bn2, bridge_conv, sample = create_unet_layers(
-            kernel_size, de_kernel_size, channel_list;
-            downsample = downsample
-        )
-
-        ContractBlock(conv1, conv2, relu1, relu2, bn1, bn2, bridge_conv, sample)
-    end
-
-    function (m::ContractBlock)(x, ps, st::NamedTuple)
-        res, st_bridge_conv = m.bridge_conv(x, ps.bridge_conv, st.bridge_conv)
-        x, st_conv1 = m.conv1(x, ps.conv1, st.conv1)
-        x, st_bn1 = m.bn1(x, ps.bn1, st.bn1)
-        x = relu(x)
-
-        x, st_conv2 = m.conv2(x, ps.conv2, st.conv2)
-        x, st_bn2 = m.bn2(x, ps.bn2, st.bn2)
-        x = relu(x)
-
-        x = x .+ res
-
-        next_layer, st_sample = m.sample(x, ps.sample, st.sample)
-
-		st = (conv1=st_conv1, conv2=st_conv2, bn1=st_bn1, bn2=st_bn2, bridge_conv=st_bridge_conv, sample=st_sample)
-        return next_layer, x, st
-    end
 end
 
-# ╔═╡ 91e05c6c-e9b3-4a72-84a5-2ce4b1359b1a
+# ╔═╡ f9b0aa7f-d660-4d6f-bd5d-721e5c809b13
+function contract_block(
+	in_channels, mid_channels, out_channels;
+	k=5, stride=2, activation=relu)
+	
+    return Chain(
+        conv_layer(k, in_channels, mid_channels),
+        conv_layer(k, mid_channels, out_channels),
+        Chain(
+            Conv((2, 2, 2), out_channels => out_channels, stride=stride),
+            BatchNorm(out_channels),
+            WrappedFunction(activation)
+        )
+    )
+end
+
+# ╔═╡ e682f461-43d7-492a-85a9-2d46e829a125
+function expand_block(
+	in_channels, mid_channels, out_channels;
+	k=5, stride=2, activation=relu)
+	
+    return Chain(
+        conv_layer(k, in_channels, mid_channels),
+        conv_layer(k, mid_channels, out_channels),
+        Chain(
+            ConvTranspose((2, 2, 2), out_channels => out_channels, stride=stride),
+            BatchNorm(out_channels),
+            WrappedFunction(activation)
+        )
+    )
+end
+
+# ╔═╡ 36ad66d6-c484-4073-bf01-1f7ec7012373
 md"""
-## Expanding Block
+## Unet
 """
 
-# ╔═╡ 70614cac-2e06-48a9-9cf6-9078bc7436bc
-begin
-    struct ExpandBlock{
-		C1, C2, F1, F2, BN1, BN2, C3, CH
-	} <: Lux.AbstractExplicitContainerLayer{
-        (:conv1, :conv2, :bn1, :bn2, :bridge_conv, :sample)
-    }
-        conv1::C1
-        conv2::C2
-        relu1::F1
-        relu2::F2
-        bn1::BN1
-        bn2::BN2
-        bridge_conv::C3
-        sample::CH
-    end
+# ╔═╡ f55e3c0f-6abe-423c-8319-96146f30eebd
+function Unet(in_channels::Int = 1, out_channels::Int = in_channels)
+    return Chain(
+        # Initial Convolution Layer
+        conv_layer(5, in_channels, 4),
 
-    function ExpandBlock(
-        kernel_size, de_kernel_size, channel_list;
-        downsample = false)
+        # Contracting Path
+        contract_block(4, 8, 8),
+        contract_block(8, 16, 16),
+        contract_block(16, 32, 32),
+        contract_block(32, 64, 64),
 
-		conv1, conv2, relu1, relu2, bn1, bn2, bridge_conv, sample = create_unet_layers(
-            kernel_size, de_kernel_size, channel_list;
-            downsample = downsample
-        )
+        # Bottleneck Layer
+        conv_layer(5, 64, 128),
 
-        ExpandBlock(conv1, conv2, relu1, relu2, bn1, bn2, bridge_conv, sample)
-    end
+        # Expanding Path
+        expand_block(128, 64, 64),
+        expand_block(64, 32, 32),
+        expand_block(32, 16, 16),
+        expand_block(16, 8, 8),
 
-    function (m::ExpandBlock)(x, ps, st::NamedTuple)
-        x, x1 = x[1], x[2]
-        x = cat(x, x1; dims=4)
-
-        res, st_bridge_conv = m.bridge_conv(x, ps.bridge_conv, st.bridge_conv)
-
-        x, st_conv1 = m.conv1(x, ps.conv1, st.conv1)
-        x, st_bn1 = m.bn1(x, ps.bn1, st.bn1)
-        x = relu(x)
-
-        x, st_conv2 = m.conv2(x, ps.conv2, st.conv2)
-        x, st_bn2 = m.bn2(x, ps.bn2, st.bn2)
-        x = relu(x)
-
-        x = x .+ res
-
-        next_layer, st_sample = m.sample(x, ps.sample, st.sample)
-
-		st = (conv1=st_conv1, conv2=st_conv2, bn1=st_bn1, bn2=st_bn2, bridge_conv=st_bridge_conv, sample=st_sample)
-        return next_layer, st
-    end
+        # Final Convolution Layer
+        Conv((1, 1, 1), 8 => out_channels)
+    )
 end
 
-# ╔═╡ 36885de0-aa0e-4037-929f-44e074fb17f5
-md"""
-## U-Net
-"""
-
-# ╔═╡ af56e2f7-2ab8-4ff2-8295-038b3a565cbc
-begin
-    struct UNet{
-		CH1, CH2, CB1, CB2, CB3, CB4, EB1, EB2, EB3, C1
-	} <: Lux.AbstractExplicitContainerLayer{
-        (:conv1, :conv2, :conv3, :conv4, :conv5, :de_conv1, :de_conv2, :de_conv3, :de_conv4, :last_conv)
-    }
-        conv1::CH1
-        conv2::CH2
-        conv3::CB1
-        conv4::CB2
-        conv5::CB3
-        de_conv1::CB4
-        de_conv2::EB1
-        de_conv3::EB2
-        de_conv4::EB3
-        last_conv::C1
-    end
-
-    function UNet(channel)
-        conv1 = Chain(
-            Conv((5, 5, 5), 1 => channel, stride=1, pad=2),
-            BatchNorm(channel),
-            relu
-        )
-        conv2 = Chain(
-            Conv((2, 2, 2), channel => 2 * channel, stride=2, pad=0),
-            BatchNorm(2 * channel),
-            relu
-        )
-        conv3 = ContractBlock(5, 2, [2 * channel, 2 * channel, 4 * channel])
-        conv4 = ContractBlock(5, 2, [4 * channel, 4 * channel, 8 * channel])
-        conv5 = ContractBlock(5, 2, [8 * channel, 8 * channel, 16 * channel])
-
-        de_conv1 = ContractBlock(
-            5, 2, [16 * channel, 32 * channel, 16 * channel];
-            downsample = false
-        )
-        de_conv2 = ExpandBlock(
-            5, 2, [32 * channel, 8 * channel, 8 * channel];
-            downsample = false
-        )
-        de_conv3 = ExpandBlock(
-            5, 2, [16 * channel, 4 * channel, 4 * channel];
-            downsample = false
-        )
-        de_conv4 = ExpandBlock(
-            5, 2, [8 * channel, 2 * channel, channel];
-            downsample = false
-        )
-
-        last_conv = Conv((1, 1, 1), 2 * channel => 2, stride=1, pad=0)
-
-		UNet(conv1, conv2, conv3, conv4, conv5, de_conv1, de_conv2, de_conv3, de_conv4, last_conv)
-    end
-
-    function (m::UNet)(x, ps, st::NamedTuple)
-        # Convolutional layers
-        x, st_conv1 = m.conv1(x, ps.conv1, st.conv1)
-        x_1 = x  # Store for skip connection
-        x, st_conv2 = m.conv2(x, ps.conv2, st.conv2)
-
-        # Downscaling Blocks
-        x, x_2, st_conv3 = m.conv3(x, ps.conv3, st.conv3)
-        x, x_3, st_conv4 = m.conv4(x, ps.conv4, st.conv4)
-        x, x_4, st_conv5 = m.conv5(x, ps.conv5, st.conv5)
-
-        # Upscaling Blocks
-        x, _, st_de_conv1 = m.de_conv1(x, ps.de_conv1, st.de_conv1)
-        x, st_de_conv2 = m.de_conv2((x, x_4), ps.de_conv2, st.de_conv2)
-        x, st_de_conv3 = m.de_conv3((x, x_3), ps.de_conv3, st.de_conv3)
-        x, st_de_conv4 = m.de_conv4((x, x_2), ps.de_conv4, st.de_conv4)
-
-        # Concatenate with first skip connection and apply last convolution
-        x = cat(x, x_1; dims=4)
-        x, st_last_conv = m.last_conv(x, ps.last_conv, st.last_conv)
-
-        # Merge states
-        st = (
-		conv1=st_conv1, conv2=st_conv2, conv3=st_conv3, conv4=st_conv4, conv5=st_conv5, de_conv1=st_de_conv1, de_conv2=st_de_conv2, de_conv3=st_de_conv3, de_conv4=st_de_conv4, last_conv=st_last_conv
-        )
-
-        return x, st
-    end
-end
+# ╔═╡ bbdaf5c5-9faa-4b61-afab-c0242b8ca034
+model = Unet(1, 2)
 
 # ╔═╡ df2dd9a7-045c-44a5-a62c-8d9f2541dc14
 md"""
@@ -651,7 +503,7 @@ md"""
 # ╔═╡ 08f2911c-90e7-418e-b9f2-a0722a857bf1
 function compute_loss(x, y, model, ps, st)
     # Get model predictions
-    y_pred, st = model(x, ps, st)
+	y_pred, st = Lux.apply(model, x, ps, st)
 
     # Apply sigmoid activation
     y_pred_sigmoid = sigmoid.(y_pred)
@@ -677,9 +529,6 @@ md"""
 
 # ╔═╡ 402ba194-350e-4ff3-832b-6651be1d9ce7
 dev = gpu_device()
-
-# ╔═╡ bbdaf5c5-9faa-4b61-afab-c0242b8ca034
-model = UNet(4)
 
 # ╔═╡ 6ec3e34b-1c57-4cfb-a50d-ee786c2e4559
 begin
@@ -708,7 +557,7 @@ function train_model(model, ps, st, train_loader, val_loader, num_epochs, dev)
     )
 
     for epoch in 1:num_epochs
-        # @info "Epoch: $epoch"
+        @info "Epoch: $epoch"
 
         # Start timing the epoch
         epoch_start_time = now()
@@ -720,16 +569,12 @@ function train_model(model, ps, st, train_loader, val_loader, num_epochs, dev)
 			num_batches_train += 1
 			@info "Step: $num_batches_train"
 			x, y = x |> dev, y |> dev
-			
-            # Forward pass
-			loss, _, _ = compute_loss(x, y, model, ps, Lux.testmode(st), epoch)
-            total_loss += loss
-            # Backward pass
-			(loss_grad, _, st), back = Zygote.pullback(p -> compute_loss(x, y, model, p, st, epoch), ps)
-            gs = back((one(loss_grad), nothing, nothing))[1]
 
-            # Update parameters
+			(loss, y_pred, st), back = Zygote.pullback(compute_loss, x, y, model, ps, st)
+			total_loss += loss
+            gs = back((one(loss), nothing, nothing))[4]
             opt_state, ps = Optimisers.update(opt_state, ps, gs)
+
         end
 
 		# Calculate and log time taken for the epoch
@@ -739,53 +584,52 @@ function train_model(model, ps, st, train_loader, val_loader, num_epochs, dev)
 		@info "avg_train_loss: $avg_train_loss"
 
 		# Validation Phase
-		total_loss = 0.0
+		val_loss = 0.0
 		total_dice = 0.0
 		total_hausdorff = 0.0
 		num_batches = 0
 		num_images = 0
+		st_ = Lux.testmode(st)
 		for (x, y) in val_loader
 			num_batches += 1
 		    x, y = x |> dev, y |> dev
+		    (loss, y_pred, st_) = compute_loss(x, y, model, ps, st_)
+		    val_loss += loss
 			
-		    # Forward Pass
-		    y_pred, st = model(x, ps, Lux.testmode(st))
-		    
-		    # Compute loss
-		    loss, _, _ = compute_loss(x, y, model, ps, Lux.testmode(st))
-		    total_loss += loss
-			
-		    # Process batch for metrics
-		    for b in axes(y_cpu, 5)
-				num_images += 1
-		        _y_pred = Bool.(round.(y_pred_cpu[:, :, :, 1, b]))
-		        _y = Bool.(y_cpu[:, :, :, 1, b])
+		 #    # Process batch for metrics
+			# y_pred_cpu, y_cpu = y_pred |> cpu_device(), y |> cpu_device()
+		 #    for b in axes(y_cpu, 5)
+			# 	num_images += 1
+				
+		 #        _y_pred = Bool.(round.(sigmoid.(y_pred_cpu[:, :, :, 1, b])))
+		 #        _y = Bool.(y_cpu[:, :, :, 1, b])
 		
-		        total_dice += dice_metric(_y_pred, _y)
-		        total_hausdorff += hausdorff_metric(_y_pred, _y)
-		    end
+		 #        total_dice += dice_metric(_y_pred, _y)
+		 #        total_hausdorff += hausdorff_metric(_y_pred, _y)
+		 #    end
 		    
 		end
 		
 		# Calculate average metrics
-		avg_val_loss = total_loss / num_batches
-		avg_dice = total_dice / num_images
-		avg_hausdorff = total_hausdorff / num_images
-		@info "avg_val_loss: $avg_val_loss"
-		@info "avg_dice: $avg_dice"
-		@info "avg_hausdorff: $avg_hausdorff"
+		avg_val_loss = val_loss / num_batches
+		# avg_dice = total_dice / num_images
+		# avg_hausdorff = total_hausdorff / num_images
+		# @info "avg_val_loss: $avg_val_loss"
+		# @info "avg_dice: $avg_dice"
+		# @info "avg_hausdorff: $avg_hausdorff"
 
-		# Save new model if dice or hausdorff metrics improve
-		if epoch > 1 && (avg_dice > metrics_df[end, :Dice_Metric] || avg_hausdorff < metrics_df[end, :Hausdorff_Metric])
-			jldsave("model_params_epoch_$epoch.jld2"; ps)
-			jldsave("model_states_epoch_$epoch.jld2"; st)
-		end
+		# # Save new model if dice or hausdorff metrics improve
+		# if epoch > 1 && (avg_dice > metrics_df[end, :Dice_Metric] || avg_hausdorff < metrics_df[end, :Hausdorff_Metric])
+		# 	jldsave("params_img_seg_epoch_$epoch.jld2"; ps)
+		# 	jldsave("states_img_seg_epoch_$epoch.jld2"; st)
+		# end
 		
         # Append metrics to the DataFrame
-		push!(metrics_df, [epoch, avg_train_loss, avg_val_loss, avg_dice, avg_hausdorff, string(epoch_duration)])
+		# push!(metrics_df, [epoch, avg_train_loss, avg_val_loss, avg_dice, avg_hausdorff, string(epoch_duration)])
+		push!(metrics_df, [epoch, avg_train_loss, avg_val_loss, 0, 0, string(epoch_duration)])
 
         # Write DataFrame to CSV file
-        CSV.write("training_metrics.csv", metrics_df)
+        CSV.write("img_seg_metrics.csv", metrics_df)
 
         @info "Metrics logged for Epoch $epoch"
     end
@@ -795,9 +639,9 @@ end
 
 # ╔═╡ a2e88851-227a-4719-8828-6064f9d3ef81
 if LuxCUDA.functional()
-	num_epochs = 20
+	num_epochs = 30
 else
-	num_epochs = 2
+	num_epochs = 10
 end
 
 # ╔═╡ 5cae73af-471c-4068-b9ff-5bc03dd0472d
@@ -812,7 +656,7 @@ md"""
 """
 
 # ╔═╡ 0bf3a26a-9e18-43d0-b059-d37e8f2e3645
-df = CSV.read("heart_seg_training_metrics.csv", DataFrame)
+df = CSV.read("img_seg_metrics.csv", DataFrame)
 
 # ╔═╡ bc72bff8-a4a8-4736-9aa2-0e87eed243ba
 let
@@ -848,12 +692,12 @@ md"""
 
 # ╔═╡ 7b9b554e-2999-4c57-805e-7bc0d7a0b4e7
 #=╠═╡
-jldsave("model_params_final.jld2"; ps_final)
+jldsave("params_img_seg_final.jld2"; ps_final)
   ╠═╡ =#
 
 # ╔═╡ 6432d227-3ff6-4230-9f52-c3e57ba78618
 #=╠═╡
-jldsave("model_states_final.jld2"; st_final)
+jldsave("states_img_seg_final.jld2"; st_final)
   ╠═╡ =#
 
 # ╔═╡ 33b4df0d-86e0-4728-a3bc-928c4dff1400
@@ -921,6 +765,8 @@ let
 end
 
 # ╔═╡ Cell order:
+# ╟─65dac38d-f955-4058-b577-827d7f8b3db4
+# ╟─7cf78ac3-cedd-479d-bc50-769f7b772060
 # ╠═d4f7e164-f9a6-47ee-85a7-dd4e0dec10ee
 # ╠═8d4a6d5a-c437-43bb-a3db-ab961b218c2e
 # ╠═c8d6553a-90df-4aeb-aa6d-a213e16fab48
@@ -965,16 +811,15 @@ end
 # ╠═803d918a-66ce-4ed3-a33f-5dda2dd7288e
 # ╟─6e2bfcfb-77e3-4532-a14d-10f4b91f2f54
 # ╟─bae79c05-034a-4c39-801a-01229b618e94
-# ╟─1494df6e-f407-42c4-8404-1f4871a2f817
+# ╟─95ad5275-63ca-4f2a-9f3e-6c6a340f5cd4
 # ╠═a3f44d7c-efa3-41d0-9509-b099ab7f09d4
-# ╟─b3fc9578-6b40-4afc-bb58-c772a61a60a5
-# ╠═3e938872-a390-40ba-8b00-b132f988e2d3
-# ╟─1d65b1d1-82de-40ca-aaba-9eee23883cf3
-# ╠═40762509-b26e-47f5-8b49-e7100fdeb72a
-# ╟─91e05c6c-e9b3-4a72-84a5-2ce4b1359b1a
-# ╠═70614cac-2e06-48a9-9cf6-9078bc7436bc
-# ╟─36885de0-aa0e-4037-929f-44e074fb17f5
-# ╠═af56e2f7-2ab8-4ff2-8295-038b3a565cbc
+# ╟─773aace6-14ad-46f6-a1a6-692247231e90
+# ╠═1588d84a-c5f7-4be6-9295-c3594d77b08f
+# ╠═f9b0aa7f-d660-4d6f-bd5d-721e5c809b13
+# ╠═e682f461-43d7-492a-85a9-2d46e829a125
+# ╟─36ad66d6-c484-4073-bf01-1f7ec7012373
+# ╠═f55e3c0f-6abe-423c-8319-96146f30eebd
+# ╠═bbdaf5c5-9faa-4b61-afab-c0242b8ca034
 # ╟─df2dd9a7-045c-44a5-a62c-8d9f2541dc14
 # ╠═a6669580-de24-4111-a7cb-26d3e727a12e
 # ╠═dfc9377a-7cc1-43ba-bb43-683d24e67d79
@@ -994,7 +839,6 @@ end
 # ╠═08f2911c-90e7-418e-b9f2-a0722a857bf1
 # ╟─45949f7f-4e4a-4857-af43-ff013dbdd137
 # ╠═402ba194-350e-4ff3-832b-6651be1d9ce7
-# ╠═bbdaf5c5-9faa-4b61-afab-c0242b8ca034
 # ╠═6ec3e34b-1c57-4cfb-a50d-ee786c2e4559
 # ╟─b7561ff5-d704-4301-b038-c02bbba91ae2
 # ╠═1e79232f-bda2-459a-bc03-85cd8afab3bf
