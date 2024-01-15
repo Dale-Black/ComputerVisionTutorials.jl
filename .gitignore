@@ -1,3 +1,3 @@
 *.DS_Store
 **.tar**
-**.jld2**
+*_epoch_**.jld2**

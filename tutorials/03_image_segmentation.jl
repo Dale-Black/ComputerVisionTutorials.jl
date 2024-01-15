@@ -52,6 +52,10 @@ using CairoMakie: Figure, Axis, heatmap!, scatterlines!, axislegend, ylims!
 # ╔═╡ a3f44d7c-efa3-41d0-9509-b099ab7f09d4
 using Lux
 
+# ╔═╡ 317c1571-d232-4cab-ac10-9fc3b7ad33b0
+# ╠═╡ show_logs = false
+using LuxCUDA
+
 # ╔═╡ a6669580-de24-4111-a7cb-26d3e727a12e
 using DistanceTransforms: transform, boolean_indicator
 
@@ -77,9 +81,8 @@ using DataFrames: DataFrame
 # ╠═╡ show_logs = false
 using ParameterSchedulers: Exp
 
-# ╔═╡ 317c1571-d232-4cab-ac10-9fc3b7ad33b0
-# ╠═╡ show_logs = false
-using LuxCUDA
+# ╔═╡ 00ea61c1-7d20-4c98-892e-dcdec3b0b43f
+using FileIO: load
 
 # ╔═╡ 1b5ae165-1069-4638-829a-471b907cce86
 import CSV
@@ -597,37 +600,36 @@ function train_model(model, ps, st, train_loader, val_loader, num_epochs, dev)
 		    (loss, y_pred, st_) = compute_loss(x, y, model, ps, st_)
 		    val_loss += loss
 			
-		 #    # Process batch for metrics
-			# y_pred_cpu, y_cpu = y_pred |> cpu_device(), y |> cpu_device()
-		 #    for b in axes(y_cpu, 5)
-			# 	num_images += 1
+		    # Process batch for metrics
+			y_pred_cpu, y_cpu = y_pred |> cpu_device(), y |> cpu_device()
+		    for b in axes(y_cpu, 5)
+				num_images += 1
 				
-		 #        _y_pred = Bool.(round.(sigmoid.(y_pred_cpu[:, :, :, 1, b])))
-		 #        _y = Bool.(y_cpu[:, :, :, 1, b])
+		        _y_pred = Bool.(round.(y_pred_cpu[:, :, :, 2, b]))
+		        _y = Bool.(y_cpu[:, :, :, 2, b])
 		
-		 #        total_dice += dice_metric(_y_pred, _y)
-		 #        total_hausdorff += hausdorff_metric(_y_pred, _y)
-		 #    end
+		        total_dice += dice_metric(_y_pred, _y)
+		        total_hausdorff += hausdorff_metric(_y_pred, _y)
+		    end
 		    
 		end
 		
 		# Calculate average metrics
 		avg_val_loss = val_loss / num_batches
-		# avg_dice = total_dice / num_images
-		# avg_hausdorff = total_hausdorff / num_images
-		# @info "avg_val_loss: $avg_val_loss"
-		# @info "avg_dice: $avg_dice"
-		# @info "avg_hausdorff: $avg_hausdorff"
+		avg_dice = total_dice / num_images
+		avg_hausdorff = total_hausdorff / num_images
+		@info "avg_val_loss: $avg_val_loss"
+		@info "avg_dice: $avg_dice"
+		@info "avg_hausdorff: $avg_hausdorff"
 
-		# # Save new model if dice or hausdorff metrics improve
-		# if epoch > 1 && (avg_dice > metrics_df[end, :Dice_Metric] || avg_hausdorff < metrics_df[end, :Hausdorff_Metric])
-		# 	jldsave("params_img_seg_epoch_$epoch.jld2"; ps)
-		# 	jldsave("states_img_seg_epoch_$epoch.jld2"; st)
-		# end
+		# Save new model if dice or hausdorff metrics improve
+		if epoch > 1 && (avg_dice > metrics_df[end, :Dice_Metric] || avg_hausdorff < metrics_df[end, :Hausdorff_Metric])
+			jldsave("params_img_seg_epoch_$epoch.jld2"; ps)
+			jldsave("states_img_seg_epoch_$epoch.jld2"; st)
+		end
 		
         # Append metrics to the DataFrame
-		# push!(metrics_df, [epoch, avg_train_loss, avg_val_loss, avg_dice, avg_hausdorff, string(epoch_duration)])
-		push!(metrics_df, [epoch, avg_train_loss, avg_val_loss, 0, 0, string(epoch_duration)])
+		push!(metrics_df, [epoch, avg_train_loss, avg_val_loss, avg_dice, avg_hausdorff, string(epoch_duration)])
 
         # Write DataFrame to CSV file
         CSV.write("img_seg_metrics.csv", metrics_df)
@@ -642,24 +644,8 @@ end
 if LuxCUDA.functional()
 	num_epochs = 30
 else
-	num_epochs = 10
+	num_epochs = 20
 end
-
-# ╔═╡ 5cae73af-471c-4068-b9ff-5bc03dd0472d
-# ╠═╡ disabled = true
-#=╠═╡
-ps_final, st_final = train_model(model, ps, st, train_loader, val_loader, num_epochs, dev);
-  ╠═╡ =#
-
-# ╔═╡ 7b9b554e-2999-4c57-805e-7bc0d7a0b4e7
-#=╠═╡
-jldsave("params_img_seg_final.jld2"; ps_final)
-  ╠═╡ =#
-
-# ╔═╡ 6432d227-3ff6-4230-9f52-c3e57ba78618
-#=╠═╡
-jldsave("states_img_seg_final.jld2"; st_final)
-  ╠═╡ =#
 
 # ╔═╡ 0dee7c0e-c239-49a4-93c9-5a856b3da883
 md"""
@@ -673,7 +659,7 @@ df = CSV.read("img_seg_metrics.csv", DataFrame)
 let
 	f = Figure()
 	ax = Axis(
-		f[1, 1],
+		f[1, 1:2],
 		title = "Losses"
 	)
 	
@@ -685,14 +671,65 @@ let
 
 	ax = Axis(
 		f[2, 1],
-		title = "Metrics"
+		title = "Dice Metric"
 	)
-	scatterlines!(df[!, :Epoch], df[!, :Dice_Metric], label = "Dice Metric")
-	scatterlines!(df[!, :Epoch], df[!, :Hausdorff_Metric], label = "Hausdorff Metric")
+	scatterlines!(df[!, :Epoch], df[!, :Dice_Metric], label = "Dice Metric", color = "blue")
 
 	axislegend(ax; position = :lc)
 
+	ax = Axis(
+		f[2, 2],
+		title = "Hausdorff Metric"
+	)
+	scatterlines!(df[!, :Epoch], df[!, :Hausdorff_Metric], label = "Hausdorff Metric", color = "green")
+
+	axislegend(ax; position = :rt)
+
 	
+	f
+end
+
+# ╔═╡ b8088188-761b-4407-adfa-0356bfdfdd6e
+xval, yval = getobs(transformed_data, 1:2)
+
+# ╔═╡ 39827c24-e4e6-4a96-abcb-3329750b6bf7
+xvals, yvals = cat(xval[1], xval[2], dims = 5), cat(yval[1], yval[2], dims = 5)
+
+# ╔═╡ 7b9b554e-2999-4c57-805e-7bc0d7a0b4e7
+jldsave("params_img_seg_final.jld2"; ps_final)
+
+# ╔═╡ 6432d227-3ff6-4230-9f52-c3e57ba78618
+jldsave("states_img_seg_final.jld2"; st_final)
+
+# ╔═╡ 1f3749a8-6613-458c-b8fc-f62cecfc150e
+begin
+	y_preds, _ = Lux.apply(model, xvals, ps_final, Lux.testmode(st_final))
+	y_preds = round.(sigmoid.(y_preds))
+end;
+
+# ╔═╡ c93583ba-9f12-4ea3-9ce5-869443a43c93
+md"""
+Batch: $(@bind b Slider(axes(xvals, 5); show_value = true))
+
+Z Slice: $(@bind z Slider(axes(yvals, 3); show_value = true, default = div(size(xvals, 3), 2)))
+"""
+
+# ╔═╡ 9f6f7552-eeb1-4abd-946c-0b2c57ba7ddf
+let
+	f = Figure()
+	ax = Axis(
+		f[1, 1],
+		title = "Ground Truth"
+	)
+	heatmap!(xvals[:, :, z, 1, b], colormap = :grays)
+	heatmap!(yvals[:, :, z, 2, b], colormap = (:jet, 0.5))
+
+	ax = Axis(
+		f[1, 2],
+		title = "Predicted"
+	)
+	heatmap!(xvals[:, :, z, 1, b], colormap = :grays)
+	heatmap!(y_preds[:, :, z, 2, b], colormap = (:jet, 0.5))
 	f
 end
 
@@ -760,6 +797,24 @@ let
 	f
 end
 
+# ╔═╡ 31c41017-e399-4eec-8ce2-c45d43ed25c0
+begin
+	st_final = load("states_img_seg_final.jld2", "st_final")
+	st_final = st_final["st_final"]
+end
+
+# ╔═╡ 27b58d15-09ef-4f92-9aea-87300dbf8a8c
+begin
+	ps_final = load("params_img_seg_final.jld2", "ps_final")
+	ps_final = ps_final["ps_final"]
+end
+
+# ╔═╡ 5cae73af-471c-4068-b9ff-5bc03dd0472d
+# ╠═╡ disabled = true
+#=╠═╡
+ps_final, st_final = train_model(model, ps, st, train_loader, val_loader, num_epochs, dev);
+  ╠═╡ =#
+
 # ╔═╡ Cell order:
 # ╟─65dac38d-f955-4058-b577-827d7f8b3db4
 # ╟─7cf78ac3-cedd-479d-bc50-769f7b772060
@@ -781,6 +836,7 @@ end
 # ╠═70bc36db-9ee3-4e1d-992d-abbf55c52070
 # ╠═2f6f0755-d71f-4239-a72b-88a545ba8ca1
 # ╠═b04c696b-b404-4976-bfc1-51889ef1d60f
+# ╠═00ea61c1-7d20-4c98-892e-dcdec3b0b43f
 # ╠═e457a411-2e7b-43b3-a247-23eff94222b0
 # ╠═1b5ae165-1069-4638-829a-471b907cce86
 # ╠═69880e6d-162a-4aae-94eb-103bd35ac3c9
@@ -844,6 +900,13 @@ end
 # ╟─0dee7c0e-c239-49a4-93c9-5a856b3da883
 # ╠═0bf3a26a-9e18-43d0-b059-d37e8f2e3645
 # ╟─bc72bff8-a4a8-4736-9aa2-0e87eed243ba
+# ╠═b8088188-761b-4407-adfa-0356bfdfdd6e
+# ╠═39827c24-e4e6-4a96-abcb-3329750b6bf7
+# ╠═27b58d15-09ef-4f92-9aea-87300dbf8a8c
+# ╠═31c41017-e399-4eec-8ce2-c45d43ed25c0
+# ╠═1f3749a8-6613-458c-b8fc-f62cecfc150e
+# ╟─c93583ba-9f12-4ea3-9ce5-869443a43c93
+# ╟─9f6f7552-eeb1-4abd-946c-0b2c57ba7ddf
 # ╟─33b4df0d-86e0-4728-a3bc-928c4dff1400
 # ╟─edddcb37-ac27-4c6a-a98e-c34525cce108
 # ╠═7c821e74-cab5-4e5b-92bc-0e8f76d36556
