@@ -748,7 +748,7 @@ md"""
 image_test = getobs(transformed_test_data, 1);
 
 # ╔═╡ 1adace71-2b22-461e-86c5-fe42f7b69958
-typeof(image_test)
+# typeof(image_test)
 
 # ╔═╡ 24fa3061-6d6b-4efe-a537-6cd6eaa9b045
 @bind z3 Slider(axes(image_test, 3), show_value = true, default = div(size(image_test, 3), 2))
