@@ -26,36 +26,28 @@ The following Git submodules are integrated into this package, each offering uni
 ### Components
 Notebooks focusing on core components of a deep learning pipeline.
 
-- 🚧 **Data Preparation** (`components/01_data_preparation.jl`)
+- 🚧 **1. Data Preparation** (`components/01_data_preparation.jl`)
   - Techniques for data loading, augmentation, and dataset splitting.
-- 🚧 **Model Building** (`components/02_model_building.jl`)
+- 🚧 **2. Model Building** (`components/02_model_building.jl`)
   - Exploration of layer architecture and activation functions.
-- 🔜 **Training and Validation** (`components/03_training_validation.jl`)
+- 🔜 **3. Training and Validation** (`components/03_training_validation.jl`)
   - Overview of optimization algorithms, regularization techniques, and validation strategies. Detailed look into different loss functions and their applications. Includes a section on model checkpointing, discussing strategies for saving and reloading model states during training.
-- 🔜 **Model Evaluation** (`components/04_model_evaluation.jl`)
+- 🔜 **4. Model Evaluation** (`components/04_model_evaluation.jl`)
   - Discussion on performance metrics like accuracy, precision, recall, F1-score, ROC-AUC. Methods for interpreting confusion matrices and conducting error analysis.
-- 🔜 **Model Deployment and Inference** (`components/05_model_deployment_inference.jl`)
+- 🔜 **5. Model Deployment and Inference** (`components/05_model_deployment_inference.jl`)
   - Guides on exporting models, integrating with applications, and efficient model inference techniques.
 
 ### Comprehensive Tutorials
 Notebooks providing end-to-end tutorials on common computer vision tasks.
 
 - 🔜 **Image Classification** (`tutorials/01_image_classification.jl`)
-  - Building a classifier, improving accuracy, and reducing overfitting.
-- 🔜 **Object Detection** (`tutorials/02_object_detection.jl`)
-  - Implementing models like YOLO, practical tips for bounding box annotations.
+  - ...
+- 🔜 **Object Tracking** (`tutorials/02_object_detection.jl`)
+  - ...
 - 🚧 **Image Segmentation** (`tutorials/03_image_segmentation.jl`)
   - Guide on 3D heart segmentation in CT images.
-- 🔜 **Generative Models** (`tutorials/04_generative_models.jl`)
-  - Introduction to GANs and applications in image generation.
-- 🔜 **Pose Estimation** (`tutorials/05_pose_estimation.jl`)
-  - Building a pose estimation model, applications in sports analytics or motion capture.
-- 🔜 **Facial Recognition** (`tutorials/06_facial_recognition.jl`)
-  - Implementing a facial recognition system, discussion on privacy and ethical considerations.
-- 🔜 **Finetuning** (`tutorials/07_finetuning.jl`)
-  - Loading a pretrained model from Metalhead.jl/Boltz.jl and finetuning for a specific application.
-- 🔜 **Distributed Segmentation** (`tutorials/08_distributed_segmentation.jl`)
-  - Using FluxMPI.jl (or Dagger.jl?) for training a segmentation model accross multiple GPUs.
+- 🔜 **Object Tracking** (`tutorials/02_object_detection.jl`)
+  - ...
 
 ## Contribution
 We're open to contributions! Feel free to start the coming-soon notebooks, help out with the notebooks that are still in progress, or suggest and create new ones. We accept both pull requests and issues. Our core packages, like Losers.jl and ComputerVisionMetrics.jl, could also use many updates and additions. If you've got a Julia package that's useful for deep learning in computer vision, consider using [Glass Notebook](https://glassnotebook.io/) for your packages documentation and we'd be happy to integrate it directly into ComputerVisionTutorials.jl!
