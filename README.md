@@ -23,6 +23,18 @@ The following Git submodules are integrated into this package, each offering uni
 - **DistanceTransforms.jl**: Provides algorithms for computing distance transforms, essential in various computer vision tasks.
 - **ComputerVisionMetrics.jl**: A collection of metrics for evaluating computer vision models.
 
+### Comprehensive Tutorials
+Notebooks providing end-to-end tutorials on common computer vision tasks.
+
+- 🔜 **Image Classification** (`tutorials/01_image_classification.jl`)
+  - ...
+- 🔜 **Object Tracking** (`tutorials/02_object_detection.jl`)
+  - ...
+- 🚧 **Image Segmentation** (`tutorials/03_image_segmentation.jl`)
+  - Guide on 3D heart segmentation in CT images.
+- 🔜 **Object Tracking** (`tutorials/02_object_detection.jl`)
+  - ...
+
 ### Components
 Notebooks focusing on core components of a deep learning pipeline.
 
@@ -36,18 +48,6 @@ Notebooks focusing on core components of a deep learning pipeline.
   - Discussion on performance metrics like accuracy, precision, recall, F1-score, ROC-AUC. Methods for interpreting confusion matrices and conducting error analysis.
 - 🔜 **5. Model Deployment and Inference** (`components/05_model_deployment_inference.jl`)
   - Guides on exporting models, integrating with applications, and efficient model inference techniques.
-
-### Comprehensive Tutorials
-Notebooks providing end-to-end tutorials on common computer vision tasks.
-
-- 🔜 **Image Classification** (`tutorials/01_image_classification.jl`)
-  - ...
-- 🔜 **Object Tracking** (`tutorials/02_object_detection.jl`)
-  - ...
-- 🚧 **Image Segmentation** (`tutorials/03_image_segmentation.jl`)
-  - Guide on 3D heart segmentation in CT images.
-- 🔜 **Object Tracking** (`tutorials/02_object_detection.jl`)
-  - ...
 
 ## Contribution
 We're open to contributions! Feel free to start the coming-soon notebooks, help out with the notebooks that are still in progress, or suggest and create new ones. We accept both pull requests and issues. Our core packages, like Losers.jl and ComputerVisionMetrics.jl, could also use many updates and additions. If you've got a Julia package that's useful for deep learning in computer vision, consider using [Glass Notebook](https://glassnotebook.io/) for your packages documentation and we'd be happy to integrate it directly into ComputerVisionTutorials.jl!
