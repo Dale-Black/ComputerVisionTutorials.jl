@@ -23,6 +23,29 @@ The following Git submodules are integrated into this package, each offering uni
 - **DistanceTransforms.jl**: Provides algorithms for computing distance transforms, essential in various computer vision tasks.
 - **ComputerVisionMetrics.jl**: A collection of metrics for evaluating computer vision models.
 
+You can clone ComputerVisionTutorials.jl repository and these submodules above at once with the --recursive option:
+
+```bash
+$ git clone --recursive https://github.com/Dale-Black/ComputerVisionTutorials.jl.git
+```
+
+You can also get submodules via `git submodule update --init` after ComputerVisionTutorials.jl is installed.
+
+```bash
+$ git clone https://github.com/Dale-Black/ComputerVisionTutorials.jl.git
+$ cd ComputerVisionTutorials.jl
+$ git submodule update --init
+Submodule 'ComputerVisionMetrics.jl' (https://github.com/Dale-Black/ComputerVisionMetrics.jl) registered for path 'ComputerVisionMetrics.jl'
+Submodule 'DistanceTransforms.jl' (https://github.com/Dale-Black/DistanceTransforms.jl) registered for path 'DistanceTransforms.jl'
+Submodule 'Losers.jl' (https://github.com/Dale-Black/Losers.jl) registered for path 'Losers.jl'
+Cloning into '.../ComputerVisionTutorials.jl/ComputerVisionMetrics.jl'...
+Cloning into '.../ComputerVisionTutorials.jl/DistanceTransforms.jl'...
+Cloning into '.../ComputerVisionTutorials.jl/Losers.jl'...
+Submodule path 'ComputerVisionMetrics.jl': checked out 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+Submodule path 'DistanceTransforms.jl': checked out 'yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy'
+Submodule path 'Losers.jl': checked out 'zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz'
+```
+
 ### Comprehensive Tutorials
 Notebooks providing end-to-end tutorials on common computer vision tasks.
 
