@@ -80,10 +80,6 @@ using DataFrames: DataFrame
 # ╠═╡ show_logs = false
 using ParameterSchedulers: Exp
 
-# ╔═╡ d4f7e164-f9a6-47ee-85a7-dd4e0dec10ee
-# ╠═╡ show_logs = false
-# using Pkg; Pkg.activate(".."); Pkg.instantiate()
-
 # ╔═╡ 1b5ae165-1069-4638-829a-471b907cce86
 import CSV
 
@@ -119,11 +115,11 @@ end
 # ╔═╡ b1516500-ad83-41d2-8a1d-093cd0d948e3
 heart_url = "https://msd-for-monai.s3-us-west-2.amazonaws.com/Task02_Heart.tar"
 
-# ╔═╡ 4e715848-611a-4125-8ee6-ac5b4d3e4147
-target_directory = "/dfs7/symolloi-lab/msd_heart_dir"
-
 # ╔═╡ 3e896957-61d8-4750-89bd-be02383417ec
 # target_directory = mktempdir()
+
+# ╔═╡ 4e715848-611a-4125-8ee6-ac5b4d3e4147
+target_directory = "/dfs7/symolloi-lab/msd_heart_dir"
 
 # ╔═╡ 99211382-7de9-4e97-872f-d0c01b8f8307
 # ╠═╡ show_logs = false
@@ -185,13 +181,15 @@ md"""
 
 # ╔═╡ 7cf78ac3-cedd-479d-bc50-769f7b772060
 md"""
-## Environment
+## Imports
+"""
 
-If running this locally, comment out the cell below and Pluto will automatically handle the package installation for you
+# ╔═╡ fc917017-4d02-4c2d-84d6-b5497d825fff
+md"""
+!!! info
+	Pluto automatically handles the install of all of these packages. You might notice that the first time running this notebook takes a while to get started, this is likely because all of these packages are being installed.md
 
-```julia
-# using Pkg; Pkg.activate(".."); Pkg.instantiate()
-```
+	After the first time, the loading time will be much quicker.
 """
 
 # ╔═╡ af798f6b-7549-4253-b02b-2ed20dc1125b
@@ -283,29 +281,68 @@ function preprocess_data(pair, target_size)
     end
 end
 
-# ╔═╡ 217d073d-c145-4b3d-85c4-eee8d22d1018
-if LuxCUDA.functional()
-	# target_size = (256, 256, 128)
-	target_size = (128, 128, 96)
-	bs = 1
-else
-	target_size = (64, 64, 32)
-	bs = 4
-end
+# ╔═╡ 837c58e9-74f1-4e67-8be1-02247705c387
+target_size = (128, 128, 96)
 
 # ╔═╡ f2b8a5ae-1c5c-47ba-8215-8ef7c5619d68
-transformed_data = mapobs(
+preprocessed_data = mapobs(
 	x -> preprocess_data(x, target_size),
 	data
 )
+
+# ╔═╡ 5517e89e-453a-4a3b-862b-0cdb23a0311c
+md"""
+## Data Augmentation
+"""
+
+# ╔═╡ 787ab89e-b419-4fcf-a5a3-47e80c1cad54
+function flip_x(image, label)
+    return reverse(image, dims=2), reverse(label, dims=2)
+end
+
+# ╔═╡ e95dfdcf-0eb6-401e-a396-a338eab022eb
+function flip_y(image, label)
+    return reverse(image, dims=1), reverse(label, dims=1)
+end
+
+# ╔═╡ 8558592a-d1ec-4b1c-bd56-da4850162f25
+function flip_z(image, label)
+    return reverse(image, dims=3), reverse(label, dims=3)
+end
+
+# ╔═╡ 40d3c92e-1e99-4442-abc2-6406d53e99f5
+function augment_data((image, label); flip_x_prob=0.5, flip_y_prob=0.5, flip_z_prob=0.5)
+    if rand() < flip_x_prob
+        image, label = flip_x(image, label)
+    end
+    
+    if rand() < flip_y_prob
+        image, label = flip_y(image, label)
+    end
+    
+    if rand() < flip_z_prob
+        image, label = flip_z(image, label)
+    end
+    
+    return image, label
+end
+
+# ╔═╡ cd3680eb-fff6-4a5b-ad58-27bb0f10de60
+augmented_data = mapobs(augment_data, preprocessed_data)
+
+# ╔═╡ 31885087-931a-4188-9d1a-8d4c2f25bdc7
+image_tfm2, label_tfm2 = getobs(augmented_data, 1);
 
 # ╔═╡ 03bab55a-6e5e-4b9f-b56a-7e9f993576eb
 md"""
 ## Dataloaders
 """
 
+# ╔═╡ cf23fca5-78f6-4bc4-9f9b-24c062254a58
+bs = 1
+
 # ╔═╡ d40f19dc-f06e-44ef-b82b-9763ff1f1189
-train_data, val_data = splitobs(transformed_data; at = 0.75)
+train_data, val_data = splitobs(augmented_data; at = 0.75)
 
 # ╔═╡ 2032b7e6-ceb7-4c08-9b0d-bc704f5e4104
 begin
@@ -353,7 +390,7 @@ md"""
 """
 
 # ╔═╡ 0f5d7796-2c3d-4b74-86c1-a1d4e3922011
-image_tfm, label_tfm = getobs(transformed_data, 1);
+image_tfm, label_tfm = getobs(augmented_data, 1);
 
 # ╔═╡ 51e9e7d9-a1d2-4fd1-bdad-52851d9498a6
 typeof(image_tfm), typeof(label_tfm)
@@ -648,6 +685,8 @@ function train_model(model, ps, st, train_loader, val_loader, num_epochs, dev)
     end
 
     # Save the best model
+	best_ps = best_ps |> Lux.cpu_device()
+	best_st = best_st |> Lux.cpu_device()
     jldsave("params_img_seg_best.jld2"; best_ps)
     jldsave("states_img_seg_best.jld2"; best_st)
     @info "Best model saved from Epoch $best_epoch"
@@ -656,11 +695,7 @@ function train_model(model, ps, st, train_loader, val_loader, num_epochs, dev)
 end
 
 # ╔═╡ a2e88851-227a-4719-8828-6064f9d3ef81
-if LuxCUDA.functional()
-	num_epochs = 100
-else
-	num_epochs = 20
-end
+num_epochs = 100
 
 # ╔═╡ 5cae73af-471c-4068-b9ff-5bc03dd0472d
 # ╠═╡ disabled = true
@@ -677,9 +712,6 @@ jldsave("params_img_seg_final.jld2"; ps_final)
 #=╠═╡
 jldsave("states_img_seg_final.jld2"; st_final)
   ╠═╡ =#
-
-# ╔═╡ fca6523f-e25c-4aed-b8c6-baa4141305f8
-
 
 # ╔═╡ 0dee7c0e-c239-49a4-93c9-5a856b3da883
 md"""
@@ -723,32 +755,33 @@ let
 	f
 end
 
-# ╔═╡ 39827c24-e4e6-4a96-abcb-3329750b6bf7
-begin
-	ps_eval = load("params_img_seg_best.jld2", "best_ps")
-	st_eval = load("states_img_seg_best.jld2", "best_st")
-end;
-
-# ╔═╡ b8088188-761b-4407-adfa-0356bfdfdd6e
-begin
+# ╔═╡ 9a65ff10-649e-4bd7-b079-35fb77eccf53
+function model_vis_prep(model, ps_eval, st_eval, transformed_data, dev)
+    # Ensure that `xvals` and `yvals` are also on the specified device
     xvals, yvals = getobs(transformed_data, 1)
-	xvals = reshape(xvals, (size(xvals)..., 1))
-	yvals = reshape(yvals, (size(yvals)..., 1))
-end;
+    xvals = reshape(xvals, (size(xvals)..., 1)) |> dev
+    yvals = reshape(yvals, (size(yvals)..., 1)) |> dev
 
-# ╔═╡ eeafe07d-dec6-4750-bba5-067b01cb6a27
-@info size(xvals), size(yvals)
+    # Move the model parameters to the specified device
+    ps_eval = ps_eval |> dev
+    st_eval = st_eval |> dev
 
-# ╔═╡ a90d7d51-c2c1-4768-ba5d-8e259d74fe29
-for (x, y) in val_loader
-	@info size(x), size(y)
+    # Evaluate the model
+    y_preds, _ = Lux.apply(model, xvals, ps_eval, Lux.testmode(st_eval))
+    y_preds = round.(sigmoid.(y_preds))
+
+    # Return the necessary components for the figure
+	return xvals |> Lux.cpu_device(), yvals |> Lux.cpu_device(), y_preds |> Lux.cpu_device()
 end
 
-# ╔═╡ 1f3749a8-6613-458c-b8fc-f62cecfc150e
-begin
-	y_preds, _ = Lux.apply(model, xvals, ps_eval, Lux.testmode(st_eval))
-	y_preds = round.(sigmoid.(y_preds))
-end;
+# ╔═╡ 61876f59-ea57-4782-82f7-6b292f8e4493
+# begin
+# 	ps_eval = load("params_img_seg_best.jld2", "best_ps")
+# 	st_eval = load("states_img_seg_best.jld2", "best_st")
+# end
+
+# ╔═╡ f408f49c-e876-47cd-9bf3-c84f28b84e1f
+xvals, yvals, y_preds = model_vis_prep(model, ps_eval, st_eval, transformed_data, dev)
 
 # ╔═╡ c93583ba-9f12-4ea3-9ce5-869443a43c93
 md"""
@@ -3395,7 +3428,7 @@ version = "3.5.0+0"
 # ╔═╡ Cell order:
 # ╟─65dac38d-f955-4058-b577-827d7f8b3db4
 # ╟─7cf78ac3-cedd-479d-bc50-769f7b772060
-# ╠═d4f7e164-f9a6-47ee-85a7-dd4e0dec10ee
+# ╟─fc917017-4d02-4c2d-84d6-b5497d825fff
 # ╠═8d4a6d5a-c437-43bb-a3db-ab961b218c2e
 # ╠═83b95cee-90ed-4522-b9a8-79c082fce02e
 # ╠═7353b7ce-8b33-4602-aed7-2aa24864aca5
@@ -3426,8 +3459,8 @@ version = "3.5.0+0"
 # ╟─ec7734c3-33a5-43c7-82db-2db4dbdc9587
 # ╠═cdfd2412-897d-4642-bb69-f8031c418446
 # ╠═b1516500-ad83-41d2-8a1d-093cd0d948e3
-# ╠═4e715848-611a-4125-8ee6-ac5b4d3e4147
 # ╠═3e896957-61d8-4750-89bd-be02383417ec
+# ╠═4e715848-611a-4125-8ee6-ac5b4d3e4147
 # ╠═99211382-7de9-4e97-872f-d0c01b8f8307
 # ╠═6d34b756-4da8-427c-91f5-dfb022c4e715
 # ╠═9577b91b-faa4-4fc5-9ec2-ed8ca94f2afe
@@ -3436,9 +3469,17 @@ version = "3.5.0+0"
 # ╠═6b8e2236-cd17-452f-8e68-93c9418027cd
 # ╠═0a03b692-045f-4321-8065-ebca13e94a96
 # ╠═e91fa0c9-cde9-4416-9e6a-3faa4f8af717
-# ╠═217d073d-c145-4b3d-85c4-eee8d22d1018
+# ╠═837c58e9-74f1-4e67-8be1-02247705c387
 # ╠═f2b8a5ae-1c5c-47ba-8215-8ef7c5619d68
+# ╟─5517e89e-453a-4a3b-862b-0cdb23a0311c
+# ╠═787ab89e-b419-4fcf-a5a3-47e80c1cad54
+# ╠═e95dfdcf-0eb6-401e-a396-a338eab022eb
+# ╠═8558592a-d1ec-4b1c-bd56-da4850162f25
+# ╠═40d3c92e-1e99-4442-abc2-6406d53e99f5
+# ╠═cd3680eb-fff6-4a5b-ad58-27bb0f10de60
+# ╠═31885087-931a-4188-9d1a-8d4c2f25bdc7
 # ╟─03bab55a-6e5e-4b9f-b56a-7e9f993576eb
+# ╠═cf23fca5-78f6-4bc4-9f9b-24c062254a58
 # ╠═d40f19dc-f06e-44ef-b82b-9763ff1f1189
 # ╠═2032b7e6-ceb7-4c08-9b0d-bc704f5e4104
 # ╟─2ec43028-c1ab-4df7-9cfe-cc1a4919a7cf
@@ -3474,15 +3515,12 @@ version = "3.5.0+0"
 # ╠═5cae73af-471c-4068-b9ff-5bc03dd0472d
 # ╠═7b9b554e-2999-4c57-805e-7bc0d7a0b4e7
 # ╠═6432d227-3ff6-4230-9f52-c3e57ba78618
-# ╠═fca6523f-e25c-4aed-b8c6-baa4141305f8
 # ╟─0dee7c0e-c239-49a4-93c9-5a856b3da883
 # ╠═0bf3a26a-9e18-43d0-b059-d37e8f2e3645
 # ╟─bc72bff8-a4a8-4736-9aa2-0e87eed243ba
-# ╠═39827c24-e4e6-4a96-abcb-3329750b6bf7
-# ╠═b8088188-761b-4407-adfa-0356bfdfdd6e
-# ╠═eeafe07d-dec6-4750-bba5-067b01cb6a27
-# ╠═a90d7d51-c2c1-4768-ba5d-8e259d74fe29
-# ╠═1f3749a8-6613-458c-b8fc-f62cecfc150e
+# ╠═9a65ff10-649e-4bd7-b079-35fb77eccf53
+# ╠═61876f59-ea57-4782-82f7-6b292f8e4493
+# ╠═f408f49c-e876-47cd-9bf3-c84f28b84e1f
 # ╟─c93583ba-9f12-4ea3-9ce5-869443a43c93
 # ╟─9f6f7552-eeb1-4abd-946c-0b2c57ba7ddf
 # ╟─33b4df0d-86e0-4728-a3bc-928c4dff1400
