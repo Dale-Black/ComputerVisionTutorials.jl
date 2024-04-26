@@ -36,9 +36,6 @@ using MLUtils: DataLoader, splitobs, mapobs, getobs
 # ╔═╡ 562b3772-89cc-4390-87c3-e7260c8aa86b
 using NIfTI: niread
 
-# ╔═╡ da9cada1-7ea0-4b6b-a338-d8e08b668d28
-using ImageTransformations: imresize
-
 # ╔═╡ db2ccf3a-437a-4dfa-ad05-2526c0e2bde0
 using Glob: glob
 
@@ -79,6 +76,12 @@ using DataFrames: DataFrame
 # ╔═╡ ec8d4131-d8c0-4bdc-9479-d96dc712567c
 # ╠═╡ show_logs = false
 using ParameterSchedulers: Exp
+
+# ╔═╡ da9cada1-7ea0-4b6b-a338-d8e08b668d28
+using ImageTransformations: imresize
+
+# ╔═╡ 6f6e49fc-3322-4da7-b6ff-8846260139b2
+using ImageFiltering: imfilter, KernelFactors.gaussian
 
 # ╔═╡ 1b5ae165-1069-4638-829a-471b907cce86
 import CSV
@@ -210,127 +213,167 @@ md"""
 # ╔═╡ 9577b91b-faa4-4fc5-9ec2-ed8ca94f2afe
 data = HeartSegmentationDataset(data_dir)
 
-# ╔═╡ ae3d24e4-2216-4744-9093-0d2a8bbaae2d
+# ╔═╡ 0e820544-dc33-43fb-85be-f928758b8b67
 md"""
 ## Preprocessing
 """
 
-# ╔═╡ 61bbecff-868a-4ca0-afb9-dc8aff786783
-function crop_image(
-    volume::Array{T, 3}, 
-    target_size::Tuple{Int, Int, Int}, 
-    max_crop_percentage::Float64 = 0.15
-) where T
-    current_size = size(volume)
-
+# ╔═╡ cf1b6b00-d55c-4310-b1e6-ca03a009a098
+function crop(
+    img, label=nothing;
+    target_size=nothing, max_crop_percentage=0.15)
+	
+	current_size = size(img)
+	N = length(current_size)
+	
+	if isnothing(target_size)
+		target_size = current_size
+	elseif length(target_size) != N
+		throw(ArgumentError("The dimensionality of target_size must match the dimensionality of the input image."))
+	end
+	
 	# Calculate the maximum allowable crop size, only for dimensions larger than target size
 	max_crop_size = [min(cs, round(Int, ts + (cs - ts) * max_crop_percentage)) for (cs, ts) in zip(current_size, target_size)]
-
-    # Center crop for dimensions needing cropping
+	
+	# Center crop for dimensions needing cropping
 	start_idx = [
 		cs > ts ? max(1, div(cs, 2) - div(ms, 2)) : 1 for (cs, ts, ms) in zip(current_size, target_size, max_crop_size)
 	]
-    end_idx = start_idx .+ max_crop_size .- 1
-	cropped_volume = volume[start_idx[1]:end_idx[1], start_idx[2]:end_idx[2], start_idx[3]:end_idx[3]]
-
-    return cropped_volume
-end
-
-# ╔═╡ 6b8e2236-cd17-452f-8e68-93c9418027cd
-function resize_image(
-    volume::Array{T, 3}, 
-    target_size::Tuple{Int, Int, Int}
-) where T
-    return imresize(volume, target_size)
-end
-
-# ╔═╡ 0a03b692-045f-4321-8065-ebca13e94a96
-function one_hot_encode(label::Array{T, 3}, num_classes::Int) where T
-	one_hot = zeros(T, size(label)..., num_classes)
+	end_idx = start_idx .+ max_crop_size .- 1
 	
-    for k in 1:num_classes
-        one_hot[:, :, :, k] = label .== k-1
-    end
+	# Create a tuple of ranges for indexing
+	crop_ranges = tuple([start_idx[i]:end_idx[i] for i in 1:N]...)
 	
-    return one_hot
+	cropped_img = img[crop_ranges...]
+	cropped_label = isnothing(label) ? nothing : label[crop_ranges...]
+	
+	return cropped_img, cropped_label
 end
 
-# ╔═╡ e91fa0c9-cde9-4416-9e6a-3faa4f8af717
-function preprocess_data(pair, target_size)
-    # Check if pair[1] and pair[2] are individual arrays or collections of arrays
-    is_individual = ndims(pair[1]) == 3 && ndims(pair[2]) == 3
+# ╔═╡ b4d6f9da-677d-494f-bbc7-811eb65a6bd7
+function resize(
+	img, label=nothing;
+	target_size=(128, 128, 96))
+	
+    resized_img = imresize(img, target_size)
+    resized_label = isnothing(label) ? nothing : imresize(label, target_size)
+    return resized_img, resized_label
+end
 
-    if is_individual
-        # Handle a single pair
-        resized_image = resize_image(pair[1], target_size)
-		processed_image = Float32.(reshape(resized_image, size(resized_image)..., 1))
+# ╔═╡ 3e1b60c0-ea32-4024-b6f7-44d3257a44ac
+function one_hot_encode(
+	img, label;
+	num_classes=2)
 
-        resized_label = resize_image(pair[2], target_size)
-        one_hot_label = Float32.(one_hot_encode(resized_label, 2))
+    img_one_hot = reshape(img, size(img)..., 1)
 
-        return (processed_image, one_hot_label)
+    if isnothing(label)
+        return img_one_hot, nothing
     else
-        # Handle a batch of pairs
-        resized_images = [resize_image(img, target_size) for img in pair[1]]
-		processed_images = [Float32.(reshape(img, size(img)..., 1)) for img in resized_images]
+        label_one_hot = Float32.(zeros(size(label)..., num_classes))
 
-        resized_labels = [resize_image(lbl, target_size) for lbl in pair[2]]
-		one_hot_labels = [Float32.(one_hot_encode(lbl, 2)) for lbl in resized_labels]
+		if ndims(label) == 2
+	        for k in 1:num_classes
+	            label_one_hot[:, :, k] = Float32.(label .== (k-1))
+	        end
+		elseif ndims(label) == 3
+			for k in 1:num_classes
+	            label_one_hot[:, :, :, k] = Float32.(label .== (k-1))
+	        end
+		end
 
-        return (processed_images, one_hot_labels)
+        return img_one_hot, label_one_hot
     end
 end
 
-# ╔═╡ 837c58e9-74f1-4e67-8be1-02247705c387
+# ╔═╡ c5bc3f84-8679-4ff7-863e-67d6125e1a4f
+function preprocess_data(
+    img, label = nothing;
+    target_size = (128, 128, 96))
+	
+	img, label = crop(img, label; target_size = target_size)
+	img, label = resize(img, label; target_size = target_size)
+	img, label = one_hot_encode(img, label; num_classes = 2)
+    return Float32.(img), Float32.(label)
+end
+
+# ╔═╡ ea0fd7c2-7cbe-4e30-905e-457ec81b42c5
 target_size = (128, 128, 96)
 
-# ╔═╡ f2b8a5ae-1c5c-47ba-8215-8ef7c5619d68
-preprocessed_data = mapobs(
-	x -> preprocess_data(x, target_size),
-	data
-)
+# ╔═╡ 43cf82c5-f0ef-42dd-ad5c-6265d345da9e
+preprocessed_data = mapobs(pair -> preprocess_data(pair...), data)
 
-# ╔═╡ 5517e89e-453a-4a3b-862b-0cdb23a0311c
+# ╔═╡ f48d5547-a80c-4709-aa2c-0dd4a5b2d2a7
+image_pre, label_pre = getobs(preprocessed_data, 1);
+
+# ╔═╡ 8d97c2b5-659f-42d8-a86b-00638790b62f
 md"""
 ## Data Augmentation
 """
 
-# ╔═╡ 787ab89e-b419-4fcf-a5a3-47e80c1cad54
-function flip_x(image, label)
-    return reverse(image, dims=2), reverse(label, dims=2)
+# ╔═╡ 8e5d073b-98ff-412e-b9fe-70e6e9e912f4
+function rand_gaussian_blur(img, label=nothing; p=0.5, k=3, σ=0.3 * ((k - 1) / 2 - 1) + 0.8)
+	if rand() < p
+		if isa(k, Integer)
+			k = fill(k, ndims(img))
+		end
+		if isa(σ, Real)
+			σ = fill(σ, ndims(img))
+		end
+	
+		minimum(k) > 0 || throw(ArgumentError("Kernel size must be positive: $(k)"))
+		minimum(σ) > 0 || throw(ArgumentError("σ must be positive: $(σ)"))
+	
+		kernel = gaussian(σ, k)
+		blurred_img = imfilter(img, kernel)
+		blurred_label = isnothing(label) ? nothing : round.(Int, imfilter(Float32.(label), kernel))
+		return blurred_img, blurred_label
+	else
+		return img, label
+	end
 end
 
-# ╔═╡ e95dfdcf-0eb6-401e-a396-a338eab022eb
-function flip_y(image, label)
-    return reverse(image, dims=1), reverse(label, dims=1)
-end
-
-# ╔═╡ 8558592a-d1ec-4b1c-bd56-da4850162f25
-function flip_z(image, label)
-    return reverse(image, dims=3), reverse(label, dims=3)
-end
-
-# ╔═╡ 40d3c92e-1e99-4442-abc2-6406d53e99f5
-function augment_data((image, label); flip_x_prob=0.5, flip_y_prob=0.5, flip_z_prob=0.5)
-    if rand() < flip_x_prob
-        image, label = flip_x(image, label)
+# ╔═╡ 5996e996-5d79-48a4-90de-2b07d9b5d59e
+function rand_flip_x(img, label=nothing; p=0.5)
+    if rand() < p
+        flipped_img = reverse(img; dims=2)
+        flipped_label = isnothing(label) ? nothing : reverse(label; dims=2)
+        return flipped_img, flipped_label
+    else
+        return img, label
     end
-    
-    if rand() < flip_y_prob
-        image, label = flip_y(image, label)
-    end
-    
-    if rand() < flip_z_prob
-        image, label = flip_z(image, label)
-    end
-    
-    return image, label
 end
 
-# ╔═╡ cd3680eb-fff6-4a5b-ad58-27bb0f10de60
-augmented_data = mapobs(augment_data, preprocessed_data)
+# ╔═╡ 28592dec-220c-46c5-9e7f-51774e134ff1
+function rand_flip_y(img, label=nothing; p=0.5)
+    if rand() < p
+        flipped_img = reverse(img; dims=1)
+        flipped_label = isnothing(label) ? nothing : reverse(label; dims=1)
+        return flipped_img, flipped_label
+    else
+        return img, label
+    end
+end
 
-# ╔═╡ 31885087-931a-4188-9d1a-8d4c2f25bdc7
+# ╔═╡ f191b8dc-5ba5-431e-a46a-cf5109d6fc7b
+function augment_data(
+	img, label=nothing;
+	blur_prob=0.5,
+	flip_x_prob=0.5,
+	flip_y_prob=0.5,
+	shear_x_prob=0.5,
+	shear_y_prob=0.5)
+	
+    img, label = rand_gaussian_blur(img, label; p=blur_prob)
+    img, label = rand_flip_x(img, label; p=flip_x_prob)
+    img, label = rand_flip_y(img, label; p=flip_y_prob)
+    return img, label
+end
+
+# ╔═╡ c1d624c8-4e1b-44d3-8f8d-dce740841a20
+augmented_data = mapobs(img -> augment_data(img...), preprocessed_data)
+
+# ╔═╡ 274f277b-0bda-47e7-a52a-e75be9538957
 image_tfm2, label_tfm2 = getobs(augmented_data, 1);
 
 # ╔═╡ 03bab55a-6e5e-4b9f-b56a-7e9f993576eb
@@ -911,6 +954,7 @@ DistanceTransforms = "71182807-4d06-4237-8dd0-bdafe4d097e2"
 FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
 Glob = "c27321d9-0574-5035-807b-f59d2c89b15c"
 HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
+ImageFiltering = "6a3955dd-da59-5b1f-98d4-e7296123deb5"
 ImageTransformations = "02fcd773-0e25-5acc-982a-7f6622650795"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 Losers = "1785af8d-d312-496e-9b53-daf6ddaba92c"
@@ -935,6 +979,7 @@ DistanceTransforms = "~0.2.1"
 FileIO = "~1.16.2"
 Glob = "~1.3.1"
 HTTP = "~1.10.3"
+ImageFiltering = "~0.7.8"
 ImageTransformations = "~0.10.1"
 JLD2 = "~0.4.46"
 Losers = "~0.2.0"
@@ -954,7 +999,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.10.2"
 manifest_format = "2.0"
-project_hash = "b2f2f9b8205fa8fa78d9d840b9bd4f4f44f1120c"
+project_hash = "1e4f50f829f3044adce0d773888a87bc9cee77f5"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "016833eb52ba2d6bea9fcb50ca295980e728ee24"
@@ -1218,6 +1263,12 @@ git-tree-sha1 = "f641eb0a4f00c343bbc32346e1217b86f3ce9dad"
 uuid = "49dc2e85-a5d0-5ad3-a950-438e2897f1b9"
 version = "0.5.1"
 
+[[deps.CatIndices]]
+deps = ["CustomUnitRanges", "OffsetArrays"]
+git-tree-sha1 = "a0f80a09780eed9b1d106a1bf62041c2efc995bc"
+uuid = "aafaddc9-749c-510e-ac4f-586e18779b91"
+version = "0.2.2"
+
 [[deps.ChainRules]]
 deps = ["Adapt", "ChainRulesCore", "Compat", "Distributed", "GPUArraysCore", "IrrationalConstants", "LinearAlgebra", "Random", "RealDot", "SparseArrays", "SparseInverseSubset", "Statistics", "StructArrays", "SuiteSparse"]
 git-tree-sha1 = "4e42872be98fa3343c4f8458cbda8c5c6a6fa97c"
@@ -1323,6 +1374,11 @@ version = "0.1.2"
     [deps.CompositionsBase.weakdeps]
     InverseFunctions = "3587e190-3f89-42d0-90ee-14403ec27112"
 
+[[deps.ComputationalResources]]
+git-tree-sha1 = "52cb3ec90e8a8bea0e62e275ba577ad0f74821f7"
+uuid = "ed09eef8-17a6-5b46-8889-db040fac31e3"
+version = "0.3.2"
+
 [[deps.ComputerVisionMetrics]]
 deps = ["ImageMorphology", "StatsBase"]
 git-tree-sha1 = "523738766a10afbfba028d48981199cade5e531f"
@@ -1378,6 +1434,11 @@ version = "0.3.1"
 git-tree-sha1 = "249fe38abf76d48563e2f4556bebd215aa317e15"
 uuid = "a8cc5b0e-0ffa-5ad4-8c14-923d3ee1735f"
 version = "4.1.1"
+
+[[deps.CustomUnitRanges]]
+git-tree-sha1 = "1a3f97f907e6dd8983b744d2642651bb162a3f7a"
+uuid = "dc8bdbbb-1ca9-579f-8c36-e416f6a65cce"
+version = "1.0.2"
 
 [[deps.DataAPI]]
 git-tree-sha1 = "abe83f3a2f1b857aac70ef8b269080af17764bbe"
@@ -1521,6 +1582,12 @@ deps = ["Artifacts", "Bzip2_jll", "FreeType2_jll", "FriBidi_jll", "JLLWrappers",
 git-tree-sha1 = "ab3f7e1819dba9434a3a5126510c8fda3a4e7000"
 uuid = "b22a6f82-2f65-5046-a5b2-351ab43fb4e5"
 version = "6.1.1+0"
+
+[[deps.FFTViews]]
+deps = ["CustomUnitRanges", "FFTW"]
+git-tree-sha1 = "cbdf14d1e8c7c8aacbe8b19862e0179fd08321c2"
+uuid = "4f61f5a4-77b1-5117-aa51-3ab5ef4ef0cd"
+version = "0.3.2"
 
 [[deps.FFTW]]
 deps = ["AbstractFFTs", "FFTW_jll", "LinearAlgebra", "MKL_jll", "Preferences", "Reexport"]
@@ -1796,6 +1863,12 @@ deps = ["ColorVectorSpace", "Colors", "FixedPointNumbers", "MappedArrays", "Mosa
 git-tree-sha1 = "b2a7eaa169c13f5bcae8131a83bc30eff8f71be0"
 uuid = "a09fc81d-aa75-5fe9-8630-4744c3626534"
 version = "0.10.2"
+
+[[deps.ImageFiltering]]
+deps = ["CatIndices", "ComputationalResources", "DataStructures", "FFTViews", "FFTW", "ImageBase", "ImageCore", "LinearAlgebra", "OffsetArrays", "PrecompileTools", "Reexport", "SparseArrays", "StaticArrays", "Statistics", "TiledIteration"]
+git-tree-sha1 = "432ae2b430a18c58eb7eca9ef8d0f2db90bc749c"
+uuid = "6a3955dd-da59-5b1f-98d4-e7296123deb5"
+version = "0.7.8"
 
 [[deps.ImageIO]]
 deps = ["FileIO", "IndirectArrays", "JpegTurbo", "LazyModules", "Netpbm", "OpenEXR", "PNGFiles", "QOI", "Sixel", "TiffImages", "UUIDs"]
@@ -3435,7 +3508,6 @@ version = "3.5.0+0"
 # ╠═de5efc37-db19-440e-9487-9a7bea84996d
 # ╠═3ab44a2a-692f-4603-a5a8-81f1d260c13e
 # ╠═562b3772-89cc-4390-87c3-e7260c8aa86b
-# ╠═da9cada1-7ea0-4b6b-a338-d8e08b668d28
 # ╠═db2ccf3a-437a-4dfa-ad05-2526c0e2bde0
 # ╠═8e2f2c6d-127d-42a6-9906-970c09a22e61
 # ╠═a3f44d7c-efa3-41d0-9509-b099ab7f09d4
@@ -3464,20 +3536,23 @@ version = "3.5.0+0"
 # ╠═99211382-7de9-4e97-872f-d0c01b8f8307
 # ╠═6d34b756-4da8-427c-91f5-dfb022c4e715
 # ╠═9577b91b-faa4-4fc5-9ec2-ed8ca94f2afe
-# ╟─ae3d24e4-2216-4744-9093-0d2a8bbaae2d
-# ╠═61bbecff-868a-4ca0-afb9-dc8aff786783
-# ╠═6b8e2236-cd17-452f-8e68-93c9418027cd
-# ╠═0a03b692-045f-4321-8065-ebca13e94a96
-# ╠═e91fa0c9-cde9-4416-9e6a-3faa4f8af717
-# ╠═837c58e9-74f1-4e67-8be1-02247705c387
-# ╠═f2b8a5ae-1c5c-47ba-8215-8ef7c5619d68
-# ╟─5517e89e-453a-4a3b-862b-0cdb23a0311c
-# ╠═787ab89e-b419-4fcf-a5a3-47e80c1cad54
-# ╠═e95dfdcf-0eb6-401e-a396-a338eab022eb
-# ╠═8558592a-d1ec-4b1c-bd56-da4850162f25
-# ╠═40d3c92e-1e99-4442-abc2-6406d53e99f5
-# ╠═cd3680eb-fff6-4a5b-ad58-27bb0f10de60
-# ╠═31885087-931a-4188-9d1a-8d4c2f25bdc7
+# ╟─0e820544-dc33-43fb-85be-f928758b8b67
+# ╠═cf1b6b00-d55c-4310-b1e6-ca03a009a098
+# ╠═da9cada1-7ea0-4b6b-a338-d8e08b668d28
+# ╠═b4d6f9da-677d-494f-bbc7-811eb65a6bd7
+# ╠═3e1b60c0-ea32-4024-b6f7-44d3257a44ac
+# ╠═c5bc3f84-8679-4ff7-863e-67d6125e1a4f
+# ╠═ea0fd7c2-7cbe-4e30-905e-457ec81b42c5
+# ╠═43cf82c5-f0ef-42dd-ad5c-6265d345da9e
+# ╠═f48d5547-a80c-4709-aa2c-0dd4a5b2d2a7
+# ╟─8d97c2b5-659f-42d8-a86b-00638790b62f
+# ╠═6f6e49fc-3322-4da7-b6ff-8846260139b2
+# ╠═8e5d073b-98ff-412e-b9fe-70e6e9e912f4
+# ╠═5996e996-5d79-48a4-90de-2b07d9b5d59e
+# ╠═28592dec-220c-46c5-9e7f-51774e134ff1
+# ╠═f191b8dc-5ba5-431e-a46a-cf5109d6fc7b
+# ╠═c1d624c8-4e1b-44d3-8f8d-dce740841a20
+# ╠═274f277b-0bda-47e7-a52a-e75be9538957
 # ╟─03bab55a-6e5e-4b9f-b56a-7e9f993576eb
 # ╠═cf23fca5-78f6-4bc4-9f9b-24c062254a58
 # ╠═d40f19dc-f06e-44ef-b82b-9763ff1f1189
