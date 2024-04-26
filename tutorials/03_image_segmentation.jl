@@ -124,10 +124,10 @@ end
 heart_url = "https://msd-for-monai.s3-us-west-2.amazonaws.com/Task02_Heart.tar"
 
 # ╔═╡ 3e896957-61d8-4750-89bd-be02383417ec
-# target_directory = mktempdir()
+target_directory = mktempdir()
 
 # ╔═╡ 4e715848-611a-4125-8ee6-ac5b4d3e4147
-target_directory = "/dfs7/symolloi-lab/msd_heart_dir"
+# target_directory = "/dfs7/symolloi-lab/msd_heart_dir"
 
 # ╔═╡ 99211382-7de9-4e97-872f-d0c01b8f8307
 # ╠═╡ show_logs = false
@@ -187,14 +187,10 @@ md"""
 # Set Up
 """
 
-# ╔═╡ 7cf78ac3-cedd-479d-bc50-769f7b772060
-md"""
-## Imports
-"""
-
 # ╔═╡ fc917017-4d02-4c2d-84d6-b5497d825fff
 md"""
-!!! info
+!!! info ""
+	## Imports
 	Pluto automatically handles the install of all of the packages imported throughout the notebook. You might notice that the first time running this notebook takes a while to get started, this is likely because all of these packages are being installed.md
 
 	After the first time, the loading time will be much quicker.
@@ -220,7 +216,7 @@ data = HeartSegmentationDataset(data_dir)
 
 # ╔═╡ 0e820544-dc33-43fb-85be-f928758b8b67
 md"""
-## Data Preprocessing
+## Preprocessing
 """
 
 # ╔═╡ cf1b6b00-d55c-4310-b1e6-ca03a009a098
@@ -316,7 +312,7 @@ preprocessed_train_data, preprocessed_val_data = splitobs(preprocessed_data; at 
 
 # ╔═╡ 8d97c2b5-659f-42d8-a86b-00638790b62f
 md"""
-## Data Augmentation
+## Augmentation
 """
 
 # ╔═╡ 8e5d073b-98ff-412e-b9fe-70e6e9e912f4
@@ -727,13 +723,20 @@ end
 num_epochs = 100
 
 # ╔═╡ 5cae73af-471c-4068-b9ff-5bc03dd0472d
+# ╠═╡ disabled = true
+#=╠═╡
 ps_final, st_final = train_model(model, ps, st, train_loader, val_loader, num_epochs, dev);
+  ╠═╡ =#
 
 # ╔═╡ 7b9b554e-2999-4c57-805e-7bc0d7a0b4e7
+#=╠═╡
 jldsave("params_img_seg_final.jld2"; ps_final)
+  ╠═╡ =#
 
 # ╔═╡ 6432d227-3ff6-4230-9f52-c3e57ba78618
+#=╠═╡
 jldsave("states_img_seg_final.jld2"; st_final)
+  ╠═╡ =#
 
 # ╔═╡ 0dee7c0e-c239-49a4-93c9-5a856b3da883
 md"""
@@ -797,13 +800,13 @@ function model_vis_prep(model, ps_eval, st_eval, transformed_data, dev)
 end
 
 # ╔═╡ 61876f59-ea57-4782-82f7-6b292f8e4493
-# begin
-# 	ps_eval = load("params_img_seg_best.jld2", "best_ps")
-# 	st_eval = load("states_img_seg_best.jld2", "best_st")
-# end
+begin
+	ps_eval = load("params_img_seg_best.jld2", "best_ps")
+	st_eval = load("states_img_seg_best.jld2", "best_st")
+end
 
 # ╔═╡ f408f49c-e876-47cd-9bf3-c84f28b84e1f
-xvals, yvals, y_preds = model_vis_prep(model, ps_eval, st_eval, transformed_data, dev)
+xvals, yvals, y_preds = model_vis_prep(model, ps_eval, st_eval, preprocessed_data, dev)
 
 # ╔═╡ c93583ba-9f12-4ea3-9ce5-869443a43c93
 md"""
@@ -846,16 +849,13 @@ test_data = HeartSegmentationDataset(data_dir; is_test = true)
 
 # ╔═╡ 6dafe561-411a-45b9-b0ee-d385136e1568
 function preprocess_test_data(image, target_size)
-    resized_image = resize_image(image, target_size)
+    resized_image, _ = resize(image; target_size)
     processed_image = Float32.(reshape(resized_image, size(resized_image)..., 1))
     return processed_image
 end
 
 # ╔═╡ fe2cfe67-9d87-4eb7-a3d6-13402afbb99a
-transformed_test_data = mapobs(
-    x -> preprocess_test_data(x, target_size),
-    test_data
-)
+transformed_test_data = mapobs(x -> preprocess_test_data(x, target_size), test_data)
 
 # ╔═╡ bf325c7f-d43a-4a02-b339-2a84eac1c4ff
 test_loader = DataLoader(transformed_test_data; batchsize = 10, collate = true)
@@ -877,13 +877,10 @@ begin
 end;
 
 # ╔═╡ 86af32ff-5ffe-4ae4-89ca-89e1165d752c
-# ╠═╡ disabled = true
-#=╠═╡
 begin
 	y_test, _ = Lux.apply(model, image_test, ps_eval, Lux.testmode(st_eval))
 	y_test = round.(sigmoid.(y_test))
 end;
-  ╠═╡ =#
 
 # ╔═╡ 1adace71-2b22-461e-86c5-fe42f7b69958
 typeof(image_test)
@@ -901,7 +898,6 @@ Z Slice: $(@bind z_test Slider(axes(image_test, 3); show_value = true, default =
 """
 
 # ╔═╡ 2c63c5ff-f364-4f78-bd3c-ac89f32d7b0f
-#=╠═╡
 let
 	f = Figure(size = (700, 500))
 	ax = Axis(
@@ -918,7 +914,6 @@ let
 	heatmap!(y_test[:, :, z_test, 2, b_test]; colormap = (:jet, 0.5))
 	f
 end
-  ╠═╡ =#
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -3426,7 +3421,6 @@ version = "3.5.0+0"
 
 # ╔═╡ Cell order:
 # ╟─65dac38d-f955-4058-b577-827d7f8b3db4
-# ╟─7cf78ac3-cedd-479d-bc50-769f7b772060
 # ╟─fc917017-4d02-4c2d-84d6-b5497d825fff
 # ╠═8d4a6d5a-c437-43bb-a3db-ab961b218c2e
 # ╠═c8d6553a-90df-4aeb-aa6d-a213e16fab48
