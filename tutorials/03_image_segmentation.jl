@@ -30,17 +30,23 @@ using HTTP: download
 # ╔═╡ de5efc37-db19-440e-9487-9a7bea84996d
 using Tar: extract
 
-# ╔═╡ 3ab44a2a-692f-4603-a5a8-81f1d260c13e
-using MLUtils: DataLoader, splitobs, mapobs, getobs
+# ╔═╡ db2ccf3a-437a-4dfa-ad05-2526c0e2bde0
+using Glob: glob
 
 # ╔═╡ 562b3772-89cc-4390-87c3-e7260c8aa86b
 using NIfTI: niread
 
-# ╔═╡ db2ccf3a-437a-4dfa-ad05-2526c0e2bde0
-using Glob: glob
+# ╔═╡ 3ab44a2a-692f-4603-a5a8-81f1d260c13e
+using MLUtils: DataLoader, splitobs, mapobs, getobs
+
+# ╔═╡ da9cada1-7ea0-4b6b-a338-d8e08b668d28
+using ImageTransformations: imresize
+
+# ╔═╡ 6f6e49fc-3322-4da7-b6ff-8846260139b2
+using ImageFiltering: imfilter, KernelFactors.gaussian
 
 # ╔═╡ 8e2f2c6d-127d-42a6-9906-970c09a22e61
-using CairoMakie: Figure, Axis, heatmap!, scatterlines!, lines!, axislegend, ylims!
+using CairoMakie: Figure, Axis, heatmap!
 
 # ╔═╡ a3f44d7c-efa3-41d0-9509-b099ab7f09d4
 using Lux
@@ -49,14 +55,11 @@ using Lux
 # ╠═╡ show_logs = false
 using LuxCUDA
 
+# ╔═╡ 12d42392-ad7b-4c5f-baf5-1f2c6052669e
+using Optimisers: Adam, setup
+
 # ╔═╡ a6669580-de24-4111-a7cb-26d3e727a12e
 using DistanceTransforms: transform, boolean_indicator
-
-# ╔═╡ dfc9377a-7cc1-43ba-bb43-683d24e67d79
-using ComputerVisionMetrics: hausdorff_metric, dice_metric
-
-# ╔═╡ c283f9a3-6a76-4186-859f-21cd9efc131f
-using ChainRulesCore: ignore_derivatives
 
 # ╔═╡ 70bc36db-9ee3-4e1d-992d-abbf55c52070
 using Losers: hausdorff_loss, dice_loss
@@ -64,33 +67,35 @@ using Losers: hausdorff_loss, dice_loss
 # ╔═╡ 2f6f0755-d71f-4239-a72b-88a545ba8ca1
 using Dates: now
 
-# ╔═╡ b04c696b-b404-4976-bfc1-51889ef1d60f
-using JLD2: jldsave
+# ╔═╡ 69880e6d-162a-4aae-94eb-103bd35ac3c9
+using Zygote: pullback
 
-# ╔═╡ 00ea61c1-7d20-4c98-892e-dcdec3b0b43f
-using FileIO: load
+# ╔═╡ dce913e0-126d-4aa3-933a-4f07eea1b8ae
+using Optimisers: update
+
+# ╔═╡ c283f9a3-6a76-4186-859f-21cd9efc131f
+using ChainRulesCore: ignore_derivatives
+
+# ╔═╡ dfc9377a-7cc1-43ba-bb43-683d24e67d79
+using ComputerVisionMetrics: hausdorff_metric, dice_metric
 
 # ╔═╡ e457a411-2e7b-43b3-a247-23eff94222b0
 using DataFrames: DataFrame
 
-# ╔═╡ ec8d4131-d8c0-4bdc-9479-d96dc712567c
-# ╠═╡ show_logs = false
-using ParameterSchedulers: Exp
-
-# ╔═╡ da9cada1-7ea0-4b6b-a338-d8e08b668d28
-using ImageTransformations: imresize
-
-# ╔═╡ 6f6e49fc-3322-4da7-b6ff-8846260139b2
-using ImageFiltering: imfilter, KernelFactors.gaussian
-
 # ╔═╡ 1b5ae165-1069-4638-829a-471b907cce86
-import CSV
+using CSV: write
 
-# ╔═╡ 69880e6d-162a-4aae-94eb-103bd35ac3c9
-import Zygote
+# ╔═╡ b04c696b-b404-4976-bfc1-51889ef1d60f
+using JLD2: jldsave
 
-# ╔═╡ 12d42392-ad7b-4c5f-baf5-1f2c6052669e
-import Optimisers
+# ╔═╡ c4824b83-01aa-411d-b088-1e5320224e3c
+using CSV: read
+
+# ╔═╡ 3d4f7938-f7f6-47f1-ad1d-c56a7d7a987f
+using CairoMakie: scatterlines!, lines!, axislegend, ylims!
+
+# ╔═╡ 00ea61c1-7d20-4c98-892e-dcdec3b0b43f
+using FileIO: load
 
 # ╔═╡ c8d6553a-90df-4aeb-aa6d-a213e16fab48
 TableOfContents()
@@ -190,7 +195,7 @@ md"""
 # ╔═╡ fc917017-4d02-4c2d-84d6-b5497d825fff
 md"""
 !!! info
-	Pluto automatically handles the install of all of these packages. You might notice that the first time running this notebook takes a while to get started, this is likely because all of these packages are being installed.md
+	Pluto automatically handles the install of all of the packages imported throughout the notebook. You might notice that the first time running this notebook takes a while to get started, this is likely because all of these packages are being installed.md
 
 	After the first time, the loading time will be much quicker.
 """
@@ -215,7 +220,7 @@ data = HeartSegmentationDataset(data_dir)
 
 # ╔═╡ 0e820544-dc33-43fb-85be-f928758b8b67
 md"""
-## Preprocessing
+## Data Preprocessing
 """
 
 # ╔═╡ cf1b6b00-d55c-4310-b1e6-ca03a009a098
@@ -304,7 +309,10 @@ target_size = (128, 128, 96)
 preprocessed_data = mapobs(pair -> preprocess_data(pair...), data)
 
 # ╔═╡ f48d5547-a80c-4709-aa2c-0dd4a5b2d2a7
-image_pre, label_pre = getobs(preprocessed_data, 1);
+# image_pre, label_pre = getobs(preprocessed_data, 1);
+
+# ╔═╡ 733e6868-6bd4-4b4a-b1a5-815db1cd8286
+preprocessed_train_data, preprocessed_val_data = splitobs(preprocessed_data; at = 0.75)
 
 # ╔═╡ 8d97c2b5-659f-42d8-a86b-00638790b62f
 md"""
@@ -367,14 +375,14 @@ function augment_data(
     img, label = rand_gaussian_blur(img, label; p=blur_prob)
     img, label = rand_flip_x(img, label; p=flip_x_prob)
     img, label = rand_flip_y(img, label; p=flip_y_prob)
-    return img, label
+    return Float32.(img), Float32.(label)
 end
 
 # ╔═╡ c1d624c8-4e1b-44d3-8f8d-dce740841a20
-augmented_data = mapobs(img -> augment_data(img...), preprocessed_data)
+augmented_train_data = mapobs(pair -> augment_data(pair...), preprocessed_train_data)
 
 # ╔═╡ 274f277b-0bda-47e7-a52a-e75be9538957
-image_tfm2, label_tfm2 = getobs(augmented_data, 1);
+# image_aug, label_aug = getobs(augmented_data, 1);
 
 # ╔═╡ 03bab55a-6e5e-4b9f-b56a-7e9f993576eb
 md"""
@@ -384,13 +392,10 @@ md"""
 # ╔═╡ cf23fca5-78f6-4bc4-9f9b-24c062254a58
 bs = 1
 
-# ╔═╡ d40f19dc-f06e-44ef-b82b-9763ff1f1189
-train_data, val_data = splitobs(augmented_data; at = 0.75)
-
 # ╔═╡ 2032b7e6-ceb7-4c08-9b0d-bc704f5e4104
 begin
-	train_loader = DataLoader(train_data; batchsize = bs, collate = true)
-	val_loader = DataLoader(val_data; batchsize = bs, collate = true)
+	train_loader = DataLoader(augmented_train_data; batchsize = bs, collate = true)
+	val_loader = DataLoader(preprocessed_val_data; batchsize = bs, collate = true)
 end
 
 # ╔═╡ 2ec43028-c1ab-4df7-9cfe-cc1a4919a7cf
@@ -433,7 +438,7 @@ md"""
 """
 
 # ╔═╡ 0f5d7796-2c3d-4b74-86c1-a1d4e3922011
-image_tfm, label_tfm = getobs(augmented_data, 1);
+image_tfm, label_tfm = getobs(augmented_train_data, 1);
 
 # ╔═╡ 51e9e7d9-a1d2-4fd1-bdad-52851d9498a6
 typeof(image_tfm), typeof(label_tfm)
@@ -560,31 +565,10 @@ md"""
 ## Optimiser
 """
 
-# ╔═╡ ca87af51-1e56-48f7-8343-1b4e8fe1c91a
-begin
-    struct Scheduler{T, F}<: Optimisers.AbstractRule
-        constructor::F
-        schedule::T
-    end
-
-    _get_opt(scheduler::Scheduler, t) = scheduler.constructor(scheduler.schedule(t))
-
-    Optimisers.init(o::Scheduler, x::AbstractArray) =
-        (t = 1, opt = Optimisers.init(_get_opt(o, 1), x))
-
-    function Optimisers.apply!(o::Scheduler, state, x, dx)
-        opt = _get_opt(o, state.t)
-        new_state, new_dx = Optimisers.apply!(opt, state.opt, x, dx)
-
-        return (t = state.t + 1, opt = new_state), new_dx
-    end
-end
-
 # ╔═╡ 0390bcf5-4cd6-49ba-860a-6f94f8ba6ded
 function create_optimiser(ps)
-    # opt = Scheduler(Exp(λ = 1e-2, γ = 0.8)) do lr Optimisers.Adam(0.01f0) end
-	opt = Optimisers.Adam(0.001f0)
-    return Optimisers.setup(opt, ps)
+	opt = Adam(0.001f0)
+    return setup(opt, ps)
 end
 
 # ╔═╡ a25bdfe6-b24d-446b-926f-6e0727d647a2
@@ -661,10 +645,10 @@ function train_model(model, ps, st, train_loader, val_loader, num_epochs, dev)
 			@info "Step: $num_batches_train"
 			x, y = x |> dev, y |> dev
 
-			(loss, y_pred, st), back = Zygote.pullback(compute_loss, x, y, model, ps, st)
+			(loss, y_pred, st), back = pullback(compute_loss, x, y, model, ps, st)
 			total_loss += loss
             gs = back((one(loss), nothing, nothing))[4]
-            opt_state, ps = Optimisers.update(opt_state, ps, gs)
+            opt_state, ps = update(opt_state, ps, gs)
 
         end
 
@@ -674,57 +658,59 @@ function train_model(model, ps, st, train_loader, val_loader, num_epochs, dev)
 		avg_train_loss = total_loss / num_batches_train
 		@info "avg_train_loss: $avg_train_loss"
 
-		# Validation Phase
-        val_loss = 0.0
-        total_dice = 0.0
-        total_hausdorff = 0.0
-        num_batches = 0
-        num_images = 0
-        ignore_derivatives() do
-			for (x, y) in val_loader
-				num_batches += 1
-			    x, y = x |> dev, y |> dev
-			    (loss, y_pred, st) = compute_loss(x, y, model, ps, st)
-			    val_loss += loss
-				
-			    # Process batch for metrics
-				y_pred_cpu, y_cpu = y_pred |> cpu_device(), y |> cpu_device()
-			    for b in axes(y_cpu, 5)
-					num_images += 1
+		if epoch % 5 == 0
+			# Validation Phase
+	        val_loss = 0.0
+	        total_dice = 0.0
+	        total_hausdorff = 0.0
+	        num_batches = 0
+	        num_images = 0
+	        ignore_derivatives() do
+				for (x, y) in val_loader
+					num_batches += 1
+				    x, y = x |> dev, y |> dev
+				    (loss, y_pred, st) = compute_loss(x, y, model, ps, st)
+				    val_loss += loss
 					
-			        _y_pred = Bool.(round.(y_pred_cpu[:, :, :, 2, b]))
-			        _y = Bool.(y_cpu[:, :, :, 2, b])
-			
-			        total_dice += dice_metric(_y_pred, _y)
-			        total_hausdorff += hausdorff_metric(_y_pred, _y)
-			    end
-			    
+				    # Process batch for metrics
+					y_pred_cpu, y_cpu = y_pred |> cpu_device(), y |> cpu_device()
+				    for b in axes(y_cpu, 5)
+						num_images += 1
+						
+				        _y_pred = Bool.(round.(y_pred_cpu[:, :, :, 2, b]))
+				        _y = Bool.(y_cpu[:, :, :, 2, b])
+				
+				        total_dice += dice_metric(_y_pred, _y)
+				        total_hausdorff += hausdorff_metric(_y_pred, _y)
+				    end
+				    
+				end
 			end
+			
+			# Calculate average metrics
+	        avg_val_loss = val_loss / num_batches
+	        avg_dice = total_dice / num_images
+	        avg_hausdorff = total_hausdorff / num_images
+	        @info "avg_val_loss: $avg_val_loss"
+	        @info "avg_dice: $avg_dice"
+	        @info "avg_hausdorff: $avg_hausdorff"
+	
+	        # Check if the current validation loss is better than the best validation loss
+	        if avg_val_loss < best_val_loss
+	            best_val_loss = avg_val_loss
+	            best_ps = ps
+	            best_st = st
+	            best_epoch = epoch
+	        end
+	
+	        # Append metrics to the DataFrame
+			push!(metrics_df, [epoch, avg_train_loss, avg_val_loss, avg_dice, avg_hausdorff, string(epoch_duration)])
+	
+	        # Write DataFrame to CSV file
+	        write("img_seg_metrics.csv", metrics_df)
+	
+	        @info "Metrics logged for Epoch $epoch"
 		end
-		
-		# Calculate average metrics
-        avg_val_loss = val_loss / num_batches
-        avg_dice = total_dice / num_images
-        avg_hausdorff = total_hausdorff / num_images
-        @info "avg_val_loss: $avg_val_loss"
-        @info "avg_dice: $avg_dice"
-        @info "avg_hausdorff: $avg_hausdorff"
-
-        # Check if the current validation loss is better than the best validation loss
-        if avg_val_loss < best_val_loss
-            best_val_loss = avg_val_loss
-            best_ps = ps
-            best_st = st
-            best_epoch = epoch
-        end
-
-        # Append metrics to the DataFrame
-		push!(metrics_df, [epoch, avg_train_loss, avg_val_loss, avg_dice, avg_hausdorff, string(epoch_duration)])
-
-        # Write DataFrame to CSV file
-        CSV.write("img_seg_metrics.csv", metrics_df)
-
-        @info "Metrics logged for Epoch $epoch"
     end
 
     # Save the best model
@@ -741,20 +727,13 @@ end
 num_epochs = 100
 
 # ╔═╡ 5cae73af-471c-4068-b9ff-5bc03dd0472d
-# ╠═╡ disabled = true
-#=╠═╡
 ps_final, st_final = train_model(model, ps, st, train_loader, val_loader, num_epochs, dev);
-  ╠═╡ =#
 
 # ╔═╡ 7b9b554e-2999-4c57-805e-7bc0d7a0b4e7
-#=╠═╡
 jldsave("params_img_seg_final.jld2"; ps_final)
-  ╠═╡ =#
 
 # ╔═╡ 6432d227-3ff6-4230-9f52-c3e57ba78618
-#=╠═╡
 jldsave("states_img_seg_final.jld2"; st_final)
-  ╠═╡ =#
 
 # ╔═╡ 0dee7c0e-c239-49a4-93c9-5a856b3da883
 md"""
@@ -762,7 +741,7 @@ md"""
 """
 
 # ╔═╡ 0bf3a26a-9e18-43d0-b059-d37e8f2e3645
-df = CSV.read("img_seg_metrics.csv", DataFrame)
+df = read("img_seg_metrics.csv", DataFrame)
 
 # ╔═╡ bc72bff8-a4a8-4736-9aa2-0e87eed243ba
 let
@@ -963,7 +942,6 @@ LuxCUDA = "d0bbae9a-e099-4d5b-a835-1c6931763bda"
 MLUtils = "f1d291b0-491e-4a28-83b9-f70985020b54"
 NIfTI = "a3a9e032-41b5-5fc4-967a-a6b7a19844d3"
 Optimisers = "3bd65402-5787-11e9-1adc-39752487f4e2"
-ParameterSchedulers = "d7d3b36b-41b8-4d0d-a2bf-768c6151755e"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Tar = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
@@ -988,7 +966,6 @@ LuxCUDA = "~0.3.2"
 MLUtils = "~0.4.4"
 NIfTI = "~0.6.0"
 Optimisers = "~0.3.2"
-ParameterSchedulers = "~0.4.1"
 PlutoUI = "~0.7.58"
 Zygote = "~0.6.69"
 """
@@ -999,7 +976,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.10.2"
 manifest_format = "2.0"
-project_hash = "1e4f50f829f3044adce0d773888a87bc9cee77f5"
+project_hash = "bb9b4b280c33cbf6d2afd7998907ff8481b388bf"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "016833eb52ba2d6bea9fcb50ca295980e728ee24"
@@ -1083,16 +1060,6 @@ version = "7.9.0"
     ReverseDiff = "37e2e3b7-166d-5795-8a7a-e32c996b4267"
     StaticArraysCore = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
     Tracker = "9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c"
-
-[[deps.ArrayLayouts]]
-deps = ["FillArrays", "LinearAlgebra"]
-git-tree-sha1 = "e46675dbc095ddfdf2b5fba247d5a25f34e1f8a2"
-uuid = "4c555306-a7a7-4459-81d9-ec55ddd5c99a"
-version = "1.6.1"
-weakdeps = ["SparseArrays"]
-
-    [deps.ArrayLayouts.extensions]
-    ArrayLayoutsSparseArraysExt = "SparseArrays"
 
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
@@ -1905,25 +1872,6 @@ git-tree-sha1 = "012e604e1c7458645cb8b436f8fba789a51b257f"
 uuid = "9b13fd28-a010-5f03-acff-a1bbcff69959"
 version = "1.0.0"
 
-[[deps.InfiniteArrays]]
-deps = ["ArrayLayouts", "FillArrays", "Infinities", "LazyArrays", "LinearAlgebra"]
-git-tree-sha1 = "d57c21c1d42fe045103d6a7766697f1fdbd9068d"
-uuid = "4858937d-0d70-526a-a4dd-2d5cb5dd786c"
-version = "0.13.5"
-
-    [deps.InfiniteArrays.extensions]
-    InfiniteArraysDSPExt = "DSP"
-    InfiniteArraysStatisticsExt = "Statistics"
-
-    [deps.InfiniteArrays.weakdeps]
-    DSP = "717857b8-e6f2-59f4-9121-6e50c889abd2"
-    Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
-
-[[deps.Infinities]]
-git-tree-sha1 = "6336676b91409ec0a2c82723de9bdf4cabd02d78"
-uuid = "e1ba4f0e-776d-440f-acd9-e1d2e9742647"
-version = "0.1.8"
-
 [[deps.Inflate]]
 git-tree-sha1 = "ea8031dea4aff6bd41f1df8f2fdfb25b33626381"
 uuid = "d25df0c9-e2be-5dd7-82c8-3ad0b3e990b9"
@@ -2125,16 +2073,6 @@ deps = ["ArrayInterface", "LinearAlgebra", "ManualMemory", "SIMDTypes", "Static"
 git-tree-sha1 = "62edfee3211981241b57ff1cedf4d74d79519277"
 uuid = "10f19ff3-798f-405d-979b-55457f8fc047"
 version = "0.1.15"
-
-[[deps.LazyArrays]]
-deps = ["ArrayLayouts", "FillArrays", "LinearAlgebra", "MacroTools", "MatrixFactorizations", "SparseArrays"]
-git-tree-sha1 = "9cfca23ab83b0dfac93cb1a1ef3331ab9fe596a5"
-uuid = "5078a376-72f3-5289-bfd5-ec5146d43c02"
-version = "1.8.3"
-weakdeps = ["StaticArrays"]
-
-    [deps.LazyArrays.extensions]
-    LazyArraysStaticArraysExt = "StaticArrays"
 
 [[deps.LazyArtifacts]]
 deps = ["Artifacts", "Pkg"]
@@ -2422,12 +2360,6 @@ git-tree-sha1 = "96ca8a313eb6437db5ffe946c457a401bbb8ce1d"
 uuid = "0a4f8689-d25c-4efe-a92b-7142dfc1aa53"
 version = "0.5.7"
 
-[[deps.MatrixFactorizations]]
-deps = ["ArrayLayouts", "LinearAlgebra", "Printf", "Random"]
-git-tree-sha1 = "78f6e33434939b0ac9ba1df81e6d005ee85a7396"
-uuid = "a3b82374-2e81-5b9e-98ce-41277c0e4c87"
-version = "2.1.0"
-
 [[deps.MbedTLS]]
 deps = ["Dates", "MbedTLS_jll", "MozillaCACerts_jll", "NetworkOptions", "Random", "Sockets"]
 git-tree-sha1 = "c067a280ddc25f196b5e7df3877c6b226d390aaf"
@@ -2661,12 +2593,6 @@ deps = ["Artifacts", "Cairo_jll", "Fontconfig_jll", "FreeType2_jll", "FriBidi_jl
 git-tree-sha1 = "526f5a03792669e4187e584e8ec9d534248ca765"
 uuid = "36c8627f-9965-5494-a995-c6b170f724f3"
 version = "1.52.1+0"
-
-[[deps.ParameterSchedulers]]
-deps = ["InfiniteArrays", "Optimisers"]
-git-tree-sha1 = "f2fa4f19f11076097cc9eb3afca83801273a47f3"
-uuid = "d7d3b36b-41b8-4d0d-a2bf-768c6151755e"
-version = "0.4.1"
 
 [[deps.Parameters]]
 deps = ["OrderedCollections", "UnPack"]
@@ -3503,37 +3429,22 @@ version = "3.5.0+0"
 # ╟─7cf78ac3-cedd-479d-bc50-769f7b772060
 # ╟─fc917017-4d02-4c2d-84d6-b5497d825fff
 # ╠═8d4a6d5a-c437-43bb-a3db-ab961b218c2e
-# ╠═83b95cee-90ed-4522-b9a8-79c082fce02e
-# ╠═7353b7ce-8b33-4602-aed7-2aa24864aca5
-# ╠═de5efc37-db19-440e-9487-9a7bea84996d
-# ╠═3ab44a2a-692f-4603-a5a8-81f1d260c13e
-# ╠═562b3772-89cc-4390-87c3-e7260c8aa86b
-# ╠═db2ccf3a-437a-4dfa-ad05-2526c0e2bde0
-# ╠═8e2f2c6d-127d-42a6-9906-970c09a22e61
-# ╠═a3f44d7c-efa3-41d0-9509-b099ab7f09d4
-# ╠═317c1571-d232-4cab-ac10-9fc3b7ad33b0
-# ╠═a6669580-de24-4111-a7cb-26d3e727a12e
-# ╠═dfc9377a-7cc1-43ba-bb43-683d24e67d79
-# ╠═c283f9a3-6a76-4186-859f-21cd9efc131f
-# ╠═70bc36db-9ee3-4e1d-992d-abbf55c52070
-# ╠═2f6f0755-d71f-4239-a72b-88a545ba8ca1
-# ╠═b04c696b-b404-4976-bfc1-51889ef1d60f
-# ╠═00ea61c1-7d20-4c98-892e-dcdec3b0b43f
-# ╠═e457a411-2e7b-43b3-a247-23eff94222b0
-# ╠═1b5ae165-1069-4638-829a-471b907cce86
-# ╠═69880e6d-162a-4aae-94eb-103bd35ac3c9
-# ╠═12d42392-ad7b-4c5f-baf5-1f2c6052669e
-# ╠═ec8d4131-d8c0-4bdc-9479-d96dc712567c
 # ╠═c8d6553a-90df-4aeb-aa6d-a213e16fab48
 # ╟─af798f6b-7549-4253-b02b-2ed20dc1125b
+# ╠═83b95cee-90ed-4522-b9a8-79c082fce02e
 # ╠═af50e5f3-1a1c-47e5-a461-ffbee0329309
 # ╟─f0e64ba5-5e11-4ddb-91d3-2a34c60dc6bf
 # ╟─ec7734c3-33a5-43c7-82db-2db4dbdc9587
+# ╠═7353b7ce-8b33-4602-aed7-2aa24864aca5
+# ╠═de5efc37-db19-440e-9487-9a7bea84996d
 # ╠═cdfd2412-897d-4642-bb69-f8031c418446
 # ╠═b1516500-ad83-41d2-8a1d-093cd0d948e3
 # ╠═3e896957-61d8-4750-89bd-be02383417ec
 # ╠═4e715848-611a-4125-8ee6-ac5b4d3e4147
 # ╠═99211382-7de9-4e97-872f-d0c01b8f8307
+# ╠═db2ccf3a-437a-4dfa-ad05-2526c0e2bde0
+# ╠═562b3772-89cc-4390-87c3-e7260c8aa86b
+# ╠═3ab44a2a-692f-4603-a5a8-81f1d260c13e
 # ╠═6d34b756-4da8-427c-91f5-dfb022c4e715
 # ╠═9577b91b-faa4-4fc5-9ec2-ed8ca94f2afe
 # ╟─0e820544-dc33-43fb-85be-f928758b8b67
@@ -3545,6 +3456,7 @@ version = "3.5.0+0"
 # ╠═ea0fd7c2-7cbe-4e30-905e-457ec81b42c5
 # ╠═43cf82c5-f0ef-42dd-ad5c-6265d345da9e
 # ╠═f48d5547-a80c-4709-aa2c-0dd4a5b2d2a7
+# ╠═733e6868-6bd4-4b4a-b1a5-815db1cd8286
 # ╟─8d97c2b5-659f-42d8-a86b-00638790b62f
 # ╠═6f6e49fc-3322-4da7-b6ff-8846260139b2
 # ╠═8e5d073b-98ff-412e-b9fe-70e6e9e912f4
@@ -3555,9 +3467,9 @@ version = "3.5.0+0"
 # ╠═274f277b-0bda-47e7-a52a-e75be9538957
 # ╟─03bab55a-6e5e-4b9f-b56a-7e9f993576eb
 # ╠═cf23fca5-78f6-4bc4-9f9b-24c062254a58
-# ╠═d40f19dc-f06e-44ef-b82b-9763ff1f1189
 # ╠═2032b7e6-ceb7-4c08-9b0d-bc704f5e4104
 # ╟─2ec43028-c1ab-4df7-9cfe-cc1a4919a7cf
+# ╠═8e2f2c6d-127d-42a6-9906-970c09a22e61
 # ╟─a6316144-c809-4d2a-bda1-d5128dcf89d3
 # ╠═f8fc2cee-c1bd-477d-9595-9427e8764bd6
 # ╟─7cb986f8-b338-4046-b569-493e443a8dcb
@@ -3569,6 +3481,8 @@ version = "3.5.0+0"
 # ╟─6e2bfcfb-77e3-4532-a14d-10f4b91f2f54
 # ╟─bae79c05-034a-4c39-801a-01229b618e94
 # ╟─95ad5275-63ca-4f2a-9f3e-6c6a340f5cd4
+# ╠═a3f44d7c-efa3-41d0-9509-b099ab7f09d4
+# ╠═317c1571-d232-4cab-ac10-9fc3b7ad33b0
 # ╟─773aace6-14ad-46f6-a1a6-692247231e90
 # ╠═1588d84a-c5f7-4be6-9295-c3594d77b08f
 # ╠═f9b0aa7f-d660-4d6f-bd5d-721e5c809b13
@@ -3578,22 +3492,35 @@ version = "3.5.0+0"
 # ╠═bbdaf5c5-9faa-4b61-afab-c0242b8ca034
 # ╟─df2dd9a7-045c-44a5-a62c-8d9f2541dc14
 # ╟─7cde37c8-4c59-4583-8995-2b01eda95cb3
-# ╠═ca87af51-1e56-48f7-8343-1b4e8fe1c91a
+# ╠═12d42392-ad7b-4c5f-baf5-1f2c6052669e
 # ╠═0390bcf5-4cd6-49ba-860a-6f94f8ba6ded
 # ╟─a25bdfe6-b24d-446b-926f-6e0727d647a2
+# ╠═a6669580-de24-4111-a7cb-26d3e727a12e
+# ╠═70bc36db-9ee3-4e1d-992d-abbf55c52070
 # ╠═08f2911c-90e7-418e-b9f2-a0722a857bf1
 # ╠═402ba194-350e-4ff3-832b-6651be1d9ce7
 # ╠═6ec3e34b-1c57-4cfb-a50d-ee786c2e4559
 # ╟─b7561ff5-d704-4301-b038-c02bbba91ae2
+# ╠═2f6f0755-d71f-4239-a72b-88a545ba8ca1
+# ╠═69880e6d-162a-4aae-94eb-103bd35ac3c9
+# ╠═dce913e0-126d-4aa3-933a-4f07eea1b8ae
+# ╠═c283f9a3-6a76-4186-859f-21cd9efc131f
+# ╠═dfc9377a-7cc1-43ba-bb43-683d24e67d79
+# ╠═e457a411-2e7b-43b3-a247-23eff94222b0
+# ╠═1b5ae165-1069-4638-829a-471b907cce86
+# ╠═b04c696b-b404-4976-bfc1-51889ef1d60f
 # ╠═1e79232f-bda2-459a-bc03-85cd8afab3bf
 # ╠═a2e88851-227a-4719-8828-6064f9d3ef81
 # ╠═5cae73af-471c-4068-b9ff-5bc03dd0472d
 # ╠═7b9b554e-2999-4c57-805e-7bc0d7a0b4e7
 # ╠═6432d227-3ff6-4230-9f52-c3e57ba78618
 # ╟─0dee7c0e-c239-49a4-93c9-5a856b3da883
+# ╠═c4824b83-01aa-411d-b088-1e5320224e3c
 # ╠═0bf3a26a-9e18-43d0-b059-d37e8f2e3645
+# ╠═3d4f7938-f7f6-47f1-ad1d-c56a7d7a987f
 # ╟─bc72bff8-a4a8-4736-9aa2-0e87eed243ba
 # ╠═9a65ff10-649e-4bd7-b079-35fb77eccf53
+# ╠═00ea61c1-7d20-4c98-892e-dcdec3b0b43f
 # ╠═61876f59-ea57-4782-82f7-6b292f8e4493
 # ╠═f408f49c-e876-47cd-9bf3-c84f28b84e1f
 # ╟─c93583ba-9f12-4ea3-9ce5-869443a43c93
