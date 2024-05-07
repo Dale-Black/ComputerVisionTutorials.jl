@@ -19,6 +19,7 @@ macro bind(def, element)
 end
 
 # ╔═╡ 51e6af07-a448-400c-9073-1a7b2c0d69c8
+# ╠═╡ show_logs = false
 using Pkg; Pkg.activate(".."); Pkg.instantiate()
 
 # ╔═╡ d657b6b8-b5f8-460a-ae5b-58049ec1a24a
@@ -198,6 +199,17 @@ function Base.getindex(d::HeartSegmentationDataset, idxs::AbstractVector{Int})
 		return images
 	end
 end
+
+# ╔═╡ 04d79a3b-3387-406e-8539-74c8792df3ac
+md"""
+!!! warning
+	Currenty, running the full training process in Pluto.jl will likely result in memory issues. Until this is fixed, you can directly run this as a script within the REPL. 
+
+	1. Clone this repo `git clone "https://github.com/Dale-Black/ComputerVisionTutorials.jl"`
+	2. Move into the tutorials dir `cd ~/ComputerVisionTutorials.jl/tutorials`
+	3. Launch the julia REPL `julia`
+	4. Initiate the training `include("03_image_segmentation.jl")`
+"""
 
 # ╔═╡ 65dac38d-f955-4058-b577-827d7f8b3db4
 md"""
@@ -740,7 +752,10 @@ end
 num_epochs = 100
 
 # ╔═╡ 5cae73af-471c-4068-b9ff-5bc03dd0472d
+# ╠═╡ disabled = true
+#=╠═╡
 ps_final, st_final = train_model(model, ps, st, train_loader, val_loader, num_epochs, dev);
+  ╠═╡ =#
 
 # ╔═╡ 7b9b554e-2999-4c57-805e-7bc0d7a0b4e7
 #=╠═╡
@@ -814,52 +829,47 @@ function model_vis_prep(model, ps_eval, st_eval, transformed_data, dev)
 end
 
 # ╔═╡ 61876f59-ea57-4782-82f7-6b292f8e4493
-# ╠═╡ disabled = true
-#=╠═╡
 begin
 	ps_eval = load("params_img_seg_best.jld2", "best_ps")
 	st_eval = load("states_img_seg_best.jld2", "best_st")
 end
-  ╠═╡ =#
 
 # ╔═╡ f408f49c-e876-47cd-9bf3-c84f28b84e1f
-#=╠═╡
 xvals, yvals, y_preds = model_vis_prep(model, ps_eval, st_eval, preprocessed_data, dev)
-  ╠═╡ =#
 
 # ╔═╡ c93583ba-9f12-4ea3-9ce5-869443a43c93
-#=╠═╡
 md"""
-Batch: $(@bind b Slider(axes(xvals, 5); show_value = true))
-
 Z Slice: $(@bind z Slider(axes(yvals, 3); show_value = true, default = div(size(xvals, 3), 2)))
 """
-  ╠═╡ =#
 
 # ╔═╡ 9f6f7552-eeb1-4abd-946c-0b2c57ba7ddf
-#=╠═╡
 let
 	f = Figure()
 	ax = Axis(
 		f[1, 1],
 		title = "Ground Truth"
 	)
-	heatmap!(xvals[:, :, z, 1, b], colormap = :grays)
-	heatmap!(yvals[:, :, z, 2, b], colormap = (:jet, 0.5))
+	heatmap!(xvals[:, :, z, 1, 1], colormap = :grays)
+	heatmap!(yvals[:, :, z, 2, 1], colormap = (:jet, 0.5))
 
 	ax = Axis(
 		f[1, 2],
 		title = "Predicted"
 	)
-	heatmap!(xvals[:, :, z, 1, b], colormap = :grays)
-	heatmap!(y_preds[:, :, z, 2, b], colormap = (:jet, 0.5))
+	heatmap!(xvals[:, :, z, 1, 1], colormap = :grays)
+	heatmap!(y_preds[:, :, z, 2, 1], colormap = (:jet, 0.5))
 	f
 end
-  ╠═╡ =#
 
 # ╔═╡ 33b4df0d-86e0-4728-a3bc-928c4dff1400
 md"""
 # 4. Model Evaluation
+"""
+
+# ╔═╡ df491a02-0147-4080-8c00-9e22bace4d6f
+md"""
+!!! warning
+	Some Pluto.jl memory issues are causing errors and segfaults so this portion of the pipeline is currently disabled. This needs to be investigated more
 """
 
 # ╔═╡ edddcb37-ac27-4c6a-a98e-c34525cce108
@@ -881,7 +891,6 @@ function preprocess_test_data(image, target_size)
 end
 
 # ╔═╡ fe2cfe67-9d87-4eb7-a3d6-13402afbb99a
-# ╠═╡ disabled = true
 #=╠═╡
 transformed_test_data = mapobs(x -> preprocess_test_data(x, target_size), test_data)
   ╠═╡ =#
@@ -902,7 +911,6 @@ md"""
 """
 
 # ╔═╡ 13303866-8a40-4325-9334-6de60a2068cd
-# ╠═╡ disabled = true
 #=╠═╡
 begin
 	image_test1, image_test2 = getobs(transformed_test_data, 1), getobs(transformed_test_data, 2)
@@ -913,7 +921,7 @@ end;
 # ╔═╡ 86af32ff-5ffe-4ae4-89ca-89e1165d752c
 #=╠═╡
 begin
-	y_test, _ = Lux.apply(model, image_test, ps_eval, Lux.testmode(st_eval))
+	y_test, _ = Lux.apply(model, image_test, ps_eval |> Lux.cpu_device(), Lux.testmode(st_eval |> Lux.cpu_device()))
 	y_test = round.(sigmoid.(y_test))
 end;
   ╠═╡ =#
@@ -958,6 +966,7 @@ end
   ╠═╡ =#
 
 # ╔═╡ Cell order:
+# ╟─04d79a3b-3387-406e-8539-74c8792df3ac
 # ╟─65dac38d-f955-4058-b577-827d7f8b3db4
 # ╠═51e6af07-a448-400c-9073-1a7b2c0d69c8
 # ╠═d657b6b8-b5f8-460a-ae5b-58049ec1a24a
@@ -1065,6 +1074,7 @@ end
 # ╟─c93583ba-9f12-4ea3-9ce5-869443a43c93
 # ╟─9f6f7552-eeb1-4abd-946c-0b2c57ba7ddf
 # ╟─33b4df0d-86e0-4728-a3bc-928c4dff1400
+# ╟─df491a02-0147-4080-8c00-9e22bace4d6f
 # ╟─edddcb37-ac27-4c6a-a98e-c34525cce108
 # ╠═7c821e74-cab5-4e5b-92bc-0e8f76d36556
 # ╠═6dafe561-411a-45b9-b0ee-d385136e1568
