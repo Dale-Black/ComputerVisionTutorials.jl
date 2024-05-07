@@ -139,10 +139,10 @@ end
 heart_url = "https://msd-for-monai.s3-us-west-2.amazonaws.com/Task02_Heart.tar"
 
 # ╔═╡ 3e896957-61d8-4750-89bd-be02383417ec
-# target_directory = mktempdir()
+target_directory = mktempdir()
 
 # ╔═╡ 4e715848-611a-4125-8ee6-ac5b4d3e4147
-target_directory = "/dfs7/symolloi-lab/msd_heart_dir"
+# target_directory = "/dfs7/symolloi-lab/msd_heart_dir"
 
 # ╔═╡ 99211382-7de9-4e97-872f-d0c01b8f8307
 # ╠═╡ show_logs = false
@@ -757,16 +757,6 @@ num_epochs = 100
 ps_final, st_final = train_model(model, ps, st, train_loader, val_loader, num_epochs, dev);
   ╠═╡ =#
 
-# ╔═╡ 7b9b554e-2999-4c57-805e-7bc0d7a0b4e7
-#=╠═╡
-jldsave("params_img_seg_final.jld2"; ps_final)
-  ╠═╡ =#
-
-# ╔═╡ 6432d227-3ff6-4230-9f52-c3e57ba78618
-#=╠═╡
-jldsave("states_img_seg_final.jld2"; st_final)
-  ╠═╡ =#
-
 # ╔═╡ 0dee7c0e-c239-49a4-93c9-5a856b3da883
 md"""
 ## Visualize Training
@@ -1060,8 +1050,6 @@ end
 # ╠═1e79232f-bda2-459a-bc03-85cd8afab3bf
 # ╠═a2e88851-227a-4719-8828-6064f9d3ef81
 # ╠═5cae73af-471c-4068-b9ff-5bc03dd0472d
-# ╠═7b9b554e-2999-4c57-805e-7bc0d7a0b4e7
-# ╠═6432d227-3ff6-4230-9f52-c3e57ba78618
 # ╟─0dee7c0e-c239-49a4-93c9-5a856b3da883
 # ╠═c4824b83-01aa-411d-b088-1e5320224e3c
 # ╠═0bf3a26a-9e18-43d0-b059-d37e8f2e3645
