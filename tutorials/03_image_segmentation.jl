@@ -107,7 +107,9 @@ using CairoMakie: scatterlines!, lines!, axislegend, ylims!
 using FileIO: load
 
 # ╔═╡ 1f32dae0-3505-4584-9f17-1be82728fc5d
-CUDA.versioninfo()
+if CUDA.functional()
+	CUDA.versioninfo()
+end
 
 # ╔═╡ c8d6553a-90df-4aeb-aa6d-a213e16fab48
 TableOfContents()
@@ -638,9 +640,10 @@ function train_model(model, ps, st, train_loader, val_loader, num_epochs, dev)
     best_epoch = 0  # Initialize best epoch
 
     for epoch in 1:num_epochs
-        @info "Epoch: $epoch"
+		@info "Epoch started"
+        # println("Epoch: $epoch")
 
-		@info "Available GPU Memory \nBefore Training Step: $(available_memory())"
+		# println("Available GPU Memory \nBefore Training Step: $(available_memory())")
         # Start timing the epoch
         epoch_start_time = now()
 
@@ -649,7 +652,7 @@ function train_model(model, ps, st, train_loader, val_loader, num_epochs, dev)
 		total_loss = 0.0
         for (x, y) in train_loader
 			num_batches_train += 1
-			@info "Step: $num_batches_train"
+			# println("Step: $num_batches_train")
 			x, y = x |> dev, y |> dev
 
 			(loss, y_pred, st), back = pullback(compute_loss, x, y, model, ps, st)
@@ -658,15 +661,16 @@ function train_model(model, ps, st, train_loader, val_loader, num_epochs, dev)
             opt_state, ps = update(opt_state, ps, gs)
 
         end
-		@info "Available GPU Memory \nAfter Training Step: $(available_memory())"
+		# println("Available GPU Memory \nAfter Training Step: $(available_memory())")
 
 		# Calculate and log time taken for the epoch
         epoch_duration = now() - epoch_start_time
 		
 		avg_train_loss = total_loss / num_batches_train
-		@info "avg_train_loss: $avg_train_loss"
+		# println("avg_train_loss: $avg_train_loss")
 
 		if epoch % 5 == 0
+			@info "Validation step started"
 			# Validation Phase
 	        val_loss = 0.0
 	        total_dice = 0.0
@@ -699,9 +703,9 @@ function train_model(model, ps, st, train_loader, val_loader, num_epochs, dev)
 	        avg_val_loss = val_loss / num_batches
 	        avg_dice = total_dice / num_images
 	        avg_hausdorff = total_hausdorff / num_images
-	        @info "avg_val_loss: $avg_val_loss"
-	        @info "avg_dice: $avg_dice"
-	        @info "avg_hausdorff: $avg_hausdorff"
+	        # println("avg_val_loss: $avg_val_loss")
+	        # println("avg_dice: $avg_dice")
+	        # println("avg_hausdorff: $avg_hausdorff")
 	
 			# Check if the current validation loss is better than the best validation loss
 			if avg_val_loss < best_val_loss
@@ -717,9 +721,9 @@ function train_model(model, ps, st, train_loader, val_loader, num_epochs, dev)
 	        # Write DataFrame to CSV file
 	        write("img_seg_metrics.csv", metrics_df)
 	
-	        @info "Metrics logged for Epoch $epoch"
+	        println("Metrics logged for Epoch $epoch")
 		end
-		@info "Available GPU Memory \nAfter Validation Step: $(available_memory())"
+		# println("Available GPU Memory \nAfter Validation Step: $(available_memory())")
     end
 
     # Save the best model
@@ -727,7 +731,7 @@ function train_model(model, ps, st, train_loader, val_loader, num_epochs, dev)
 	best_st = best_st |> Lux.cpu_device()
     jldsave("params_img_seg_best.jld2"; best_ps)
     jldsave("states_img_seg_best.jld2"; best_st)
-    @info "Best model saved from Epoch $best_epoch"
+    println("Best model saved from Epoch $best_epoch")
 
     return best_ps, best_st
 end
@@ -739,10 +743,14 @@ num_epochs = 100
 ps_final, st_final = train_model(model, ps, st, train_loader, val_loader, num_epochs, dev);
 
 # ╔═╡ 7b9b554e-2999-4c57-805e-7bc0d7a0b4e7
+#=╠═╡
 jldsave("params_img_seg_final.jld2"; ps_final)
+  ╠═╡ =#
 
 # ╔═╡ 6432d227-3ff6-4230-9f52-c3e57ba78618
+#=╠═╡
 jldsave("states_img_seg_final.jld2"; st_final)
+  ╠═╡ =#
 
 # ╔═╡ 0dee7c0e-c239-49a4-93c9-5a856b3da883
 md"""
@@ -860,7 +868,10 @@ md"""
 """
 
 # ╔═╡ 7c821e74-cab5-4e5b-92bc-0e8f76d36556
+# ╠═╡ disabled = true
+#=╠═╡
 test_data = HeartSegmentationDataset(data_dir; is_test = true)
+  ╠═╡ =#
 
 # ╔═╡ 6dafe561-411a-45b9-b0ee-d385136e1568
 function preprocess_test_data(image, target_size)
