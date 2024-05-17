@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.40
+# v0.19.42
 
 #> [frontmatter]
 #> title = "Image Segmentation"
@@ -203,12 +203,9 @@ end
 # ╔═╡ 04d79a3b-3387-406e-8539-74c8792df3ac
 md"""
 !!! warning
-	Currenty, running the full training process in Pluto.jl will likely result in memory issues. Until this is fixed, you can directly run this as a script within the REPL. 
+	Currenty, running the full training process in Pluto.jl is causing [memory issues](https://github.com/fonsp/Pluto.jl/issues/2913#issue-2284224339). To circumvent this, run Pluto.jl with logging in the terminal:
 
-	1. Clone this repo `git clone "https://github.com/Dale-Black/ComputerVisionTutorials.jl"`
-	2. Move into the tutorials dir `cd ~/ComputerVisionTutorials.jl/tutorials`
-	3. Launch the julia REPL `julia`
-	4. Initiate the training `include("03_image_segmentation.jl")`
+	`Pluto.run(capture_stdout = false)`
 """
 
 # ╔═╡ 65dac38d-f955-4058-b577-827d7f8b3db4
