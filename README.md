@@ -55,7 +55,7 @@ Notebooks providing end-to-end tutorials on common computer vision tasks.
   - ...
 - 🚧 **Image Segmentation** (`tutorials/03_image_segmentation.jl`)
   - Guide on 3D heart segmentation in CT images.
-- 🔜 **Object Tracking** (`tutorials/02_object_detection.jl`)
+- 🔜 **Image Generation** (`tutorials/04_image_generation.jl`)
   - ...
 
 ### Components
